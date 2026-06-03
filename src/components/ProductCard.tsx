@@ -3,10 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Minus, ShoppingBag } from "lucide-react";
 import { Product } from "../types";
 import { optimizeImageUrl, imagePerfProps } from "../lib/imageOptimizer";
+import { safeTrack } from "../lib/metaPixel";
 
 interface ProductCardProps {
   product: Product;
@@ -18,6 +19,18 @@ interface ProductCardProps {
 
 export function ProductCard({ product, quantityInCart, onAdd, onRemoveOne }: ProductCardProps) {
   const [isImageLoaded, setIsImageLoaded] = useState(false);
+
+  useEffect(() => {
+    // Safely trigger ViewContent event for this loaded product item
+    safeTrack("ViewContent", {
+      content_name: product.name,
+      content_category: product.category,
+      value: product.price,
+      currency: "BRL",
+      content_ids: [product.id],
+      content_type: "product"
+    });
+  }, [product.id]);
 
   // Format price in Brazilian Real context
   const formattedPrice = new Intl.NumberFormat("pt-BR", {

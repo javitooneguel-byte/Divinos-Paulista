@@ -36,10 +36,16 @@ import {
   loadSupabaseCategories, 
   loadSupabaseProducts 
 } from "./lib/supabase";
+import { safeTrack } from "./lib/metaPixel";
 
 export default function App() {
   // Simple Client-Side Router
   const [currentPath, setCurrentPath] = useState(() => window.location.pathname);
+
+  useEffect(() => {
+    // Dynamically trigger PageView on any client-side page route or hash changes
+    safeTrack("PageView");
+  }, [currentPath]);
 
   useEffect(() => {
     const handleLocationChange = () => {
@@ -255,6 +261,16 @@ export default function App() {
 
   // Cart operations
   const handleAddToCart = (product: Product) => {
+    // Safely trigger Meta Pixel AddToCart event with structured meta details
+    safeTrack("AddToCart", {
+      content_name: product.name,
+      content_category: product.category,
+      value: product.price,
+      currency: "BRL",
+      content_ids: [product.id],
+      content_type: "product"
+    });
+
     setCartItems((prevItems) => {
       const existing = prevItems.find((item) => item.product.id === product.id);
       if (existing) {
@@ -425,6 +441,14 @@ export default function App() {
 
     const compiledUrl = `https://wa.me/${appData.restaurant.whatsapp}?text=${encodeURIComponent(messageText)}`;
     
+    // Trigger Meta Pixel Lead event for the finalized order going to WhatsApp
+    safeTrack("Lead", {
+      value: cartTotal,
+      currency: "BRL",
+      content_name: `Pedido de ${customer.name.trim()}`,
+      num_items: totalItemsCount
+    });
+
     // Open WhatsApp in a safe manner
     window.open(compiledUrl, "_blank");
   };
@@ -590,6 +614,7 @@ export default function App() {
         onUpdateObservation={setObservation}
         onSubmitOrder={handleSubmitOrder}
         deliveryFee={deliveryCost}
+        allProducts={appData?.products || []}
       />
 
       {/* CUSTOM LUX ALERT MODAL */}

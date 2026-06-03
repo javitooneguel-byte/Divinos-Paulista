@@ -3,10 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { X, ShoppingBag, Plus, Minus, Trash2, Send, CreditCard } from "lucide-react";
-import { CartItem, Customer, Address } from "../types";
+import { useState, useEffect } from "react";
+import { X, ShoppingBag, Plus, Minus, Trash2, Send, CreditCard, Sparkles, ChefHat, AlertTriangle, Coffee } from "lucide-react";
+import { CartItem, Customer, Address, Product } from "../types";
 import { CheckoutForm } from "./CheckoutForm";
 import { optimizeImageUrl, imagePerfProps } from "../lib/imageOptimizer";
+import { safeTrack } from "../lib/metaPixel";
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -23,6 +25,7 @@ interface CartDrawerProps {
   onUpdateObservation: (observation: string) => void;
   onSubmitOrder: () => void;
   deliveryFee: number;
+  allProducts: Product[];
 }
 
 export function CartDrawer({
@@ -40,7 +43,20 @@ export function CartDrawer({
   onUpdateObservation,
   onSubmitOrder,
   deliveryFee,
+  allProducts,
 }: CartDrawerProps) {
+  const [showReinforceModal, setShowReinforceModal] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && cartItems.length > 0) {
+      safeTrack("InitiateCheckout", {
+        num_items: cartItems.reduce((acc, item) => acc + item.quantity, 0),
+        value: cartItems.reduce((acc, item) => acc + item.product.price * item.quantity, 0),
+        currency: "BRL"
+      });
+    }
+  }, [isOpen, cartItems.length]);
+
   if (!isOpen) return null;
 
   const subtotal = cartItems.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
@@ -51,6 +67,19 @@ export function CartDrawer({
       style: "currency",
       currency: "BRL"
     }).format(value);
+  };
+
+  const handleFinalSubmit = () => {
+    const hasBeverageOrJuice = cartItems.some(
+      (item) => item.product.category === "Bebidas" || item.product.category === "Sucos Naturais"
+    );
+    const hasDessert = cartItems.some((item) => item.product.category === "Sobremesas");
+
+    if (!hasBeverageOrJuice && !hasDessert) {
+      setShowReinforceModal(true);
+    } else {
+      onSubmitOrder();
+    }
   };
 
   return (
@@ -124,55 +153,147 @@ export function CartDrawer({
                             referrerPolicy="no-referrer"
                           />
                           <div className="flex-1 min-w-0">
-                          <h4 className="font-sans text-sm font-bold text-stone-950 truncate leading-tight mb-0.5">
-                            {item.product.name}
-                          </h4>
-                          <span className="text-xs text-stone-500 font-sans line-clamp-1 mb-2">
-                            {item.product.category}
-                          </span>
-                          
-                          <div className="flex items-center justify-between">
-                            {/* Quantity buttons */}
-                            <div className="flex items-center bg-stone-50 border border-stone-200/60 rounded-lg p-0.5">
-                              <button
-                                type="button"
-                                onClick={() => onRemoveOne(item.product.id)}
-                                className="w-6 h-6 rounded hover:bg-white text-stone-600 flex items-center justify-center transition active:scale-90"
-                              >
-                                <Minus className="w-3 h-3" />
-                              </button>
-                              <span className="text-xs font-bold text-stone-900 px-2 min-w-[16px] text-center">
-                                {item.quantity}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => onAdd(item.product)}
-                                className="w-6 h-6 rounded hover:bg-white text-stone-600 flex items-center justify-center transition active:scale-90"
-                              >
-                                <Plus className="w-3 h-3" />
-                              </button>
-                            </div>
-
-                            <span className="text-stone-900 font-sans font-extrabold text-sm">
-                              {formatPrice(item.product.price * item.quantity)}
+                            <h4 className="font-sans text-sm font-bold text-stone-950 truncate leading-tight mb-0.5">
+                              {item.product.name}
+                            </h4>
+                            <span className="text-xs text-stone-500 font-sans line-clamp-1 mb-2">
+                              {item.product.category}
                             </span>
-                          </div>
-                        </div>
+                            
+                            <div className="flex items-center justify-between">
+                              {/* Quantity buttons */}
+                              <div className="flex items-center bg-stone-50 border border-stone-200/60 rounded-lg p-0.5">
+                                <button
+                                  type="button"
+                                  onClick={() => onRemoveOne(item.product.id)}
+                                  className="w-6 h-6 rounded hover:bg-white text-stone-600 flex items-center justify-center transition active:scale-90"
+                                >
+                                  <Minus className="w-3 h-3" />
+                                </button>
+                                <span className="text-xs font-bold text-stone-900 px-2 min-w-[16px] text-center">
+                                  {item.quantity}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => onAdd(item.product)}
+                                  className="w-6 h-6 rounded hover:bg-white text-stone-600 flex items-center justify-center transition active:scale-90"
+                                >
+                                  <Plus className="w-3 h-3" />
+                                </button>
+                              </div>
 
-                        {/* Remove trash */}
-                        <button
-                          type="button"
-                          onClick={() => onRemoveAll(item.product.id)}
-                          className="self-center p-1.5 rounded-lg text-stone-400 hover:text-brand-red hover:bg-stone-50 transition"
-                          title="Remover produto do pedido"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    );
-                  })}
+                              <span className="text-stone-900 font-sans font-extrabold text-sm">
+                                {formatPrice(item.product.price * item.quantity)}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Remove trash */}
+                          <button
+                            type="button"
+                            onClick={() => onRemoveAll(item.product.id)}
+                            className="self-center p-1.5 rounded-lg text-stone-400 hover:text-brand-red hover:bg-stone-50 transition"
+                            title="Remover produto do pedido"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
+
+                {/* 1.5 CONTEXTUAL UPSELL RECOMMENDATIONS BASED ON USER SELECTIONS */}
+                {cartItems.length > 0 && (() => {
+                  const hasJuice = cartItems.some(item => item.product.category === "Sucos Naturais");
+                  const hasDessert = cartItems.some(item => item.product.category === "Sobremesas");
+
+                  // If user has not added any natural juices, show juices!
+                  if (!hasJuice) {
+                    const juices = (allProducts || []).filter(p => p.category === "Sucos Naturais" && p.isActive !== false).slice(0, 3);
+                    if (juices.length > 0) {
+                      return (
+                        <div className="bg-amber-50/60 border border-amber-200 p-4 rounded-2xl space-y-3 shadow-inner">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">🍹</span>
+                            <h4 className="text-xs font-black uppercase text-amber-905 tracking-wider">
+                              Que tal um Suco natural preparado na hora para acompanhar o almoço?
+                            </h4>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                            {juices.map(juice => (
+                              <div key={juice.id} className="bg-white border border-amber-100 rounded-xl p-2.5 flex sm:flex-col items-center justify-between sm:justify-center gap-2 text-center shadow-sm hover:border-brand-yellow/65 transition-all">
+                                <div className="flex sm:flex-col items-center gap-2 text-left sm:text-center w-3/4 sm:w-auto">
+                                  <img 
+                                    src={optimizeImageUrl(juice.image, { width: 100, quality: 70 })} 
+                                    alt={juice.name} 
+                                    className="w-10 h-10 object-cover rounded-lg shadow-sm block"
+                                    loading="lazy"
+                                  />
+                                  <div className="min-w-0">
+                                    <p className="font-bold text-stone-900 text-[11px] leading-tight line-clamp-2">{juice.name}</p>
+                                    <p className="text-[10px] text-amber-700 font-extrabold mt-0.5">R$ {juice.price.toFixed(2).replace(".", ",")}</p>
+                                  </div>
+                                </div>
+                                <button 
+                                  type="button"
+                                  onClick={() => onAdd(juice)}
+                                  className="bg-brand-yellow hover:bg-amber-400 text-stone-950 font-black text-[10px] px-2.5 py-1.5 rounded-lg transition uppercase tracking-wide flex items-center gap-1 active:scale-95 cursor-pointer shrink-0"
+                                >
+                                  <Plus className="w-3 h-3 stroke-[3]" /> Adicionar
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                  }
+
+                  // If user has added a juice, but hasn't added any dessert!
+                  if (hasJuice && !hasDessert) {
+                    const desserts = (allProducts || []).filter(p => p.category === "Sobremesas" && p.isActive !== false).slice(0, 3);
+                    if (desserts.length > 0) {
+                      return (
+                        <div className="bg-rose-50/60 border border-rose-200 p-4 rounded-2xl space-y-3 shadow-inner">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">🍰</span>
+                            <h4 className="text-xs font-black uppercase text-rose-950 tracking-wider">
+                              E para fechar com chave de ouro... Que tal uma sobremesa gelada?
+                            </h4>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                            {desserts.map(dessert => (
+                              <div key={dessert.id} className="bg-white border border-rose-100 rounded-xl p-2.5 flex sm:flex-col items-center justify-between sm:justify-center gap-2 text-center shadow-sm hover:border-brand-red/40 transition-all">
+                                <div className="flex sm:flex-col items-center gap-2 text-left sm:text-center w-3/4 sm:w-auto">
+                                  <img 
+                                    src={optimizeImageUrl(dessert.image, { width: 100, quality: 70 })} 
+                                    alt={dessert.name} 
+                                    className="w-10 h-10 object-cover rounded-lg shadow-sm block"
+                                    loading="lazy"
+                                  />
+                                  <div className="min-w-0">
+                                    <p className="font-bold text-stone-900 text-[11px] leading-tight line-clamp-2">{dessert.name}</p>
+                                    <p className="text-[10px] text-rose-700 font-extrabold mt-0.5">R$ {dessert.price.toFixed(2).replace(".", ",")}</p>
+                                  </div>
+                                </div>
+                                <button 
+                                  type="button"
+                                  onClick={() => onAdd(dessert)}
+                                  className="bg-brand-red hover:bg-brand-red-dark text-white font-black text-[10px] px-2.5 py-1.5 rounded-lg transition uppercase tracking-wide flex items-center gap-1 active:scale-95 cursor-pointer shrink-0"
+                                >
+                                  <Plus className="w-3 h-3 stroke-[3]" /> Adicionar
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                  }
+
+                  return null;
+                })()}
 
                 {/* 2. INSTANT ORDER BILL DETAILS */}
                 <div className="bg-white p-5 rounded-2xl border border-stone-100 shadow-sm space-y-3 font-sans">
@@ -204,7 +325,7 @@ export function CartDrawer({
                   onUpdateAddress={onUpdateAddress}
                   observation={observation}
                   onUpdateObservation={onUpdateObservation}
-                  onSubmitOrder={onSubmitOrder}
+                  onSubmitOrder={handleFinalSubmit}
                 />
               </div>
             )}
@@ -214,7 +335,7 @@ export function CartDrawer({
           {cartItems.length > 0 && (
             <div className="bg-white border-t border-stone-200/80 p-4 sm:p-5 shadow-[0_-4px_12px_rgba(0,0,0,0.03)] z-10 font-sans">
               <button
-                onClick={onSubmitOrder}
+                onClick={handleFinalSubmit}
                 className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 shadow-lg shadow-emerald-700/10 transition active:scale-[0.98] text-sm uppercase tracking-widest"
               >
                 <Send className="w-4.5 h-4.5 animate-pulse" />
@@ -228,6 +349,128 @@ export function CartDrawer({
 
         </div>
       </div>
+
+      {/* SMART CROSS-SELL REINFORCEMENT MODAL */}
+      {showReinforceModal && (
+        <div className="fixed inset-0 bg-stone-950/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden border-2 border-brand-yellow shadow-2xl animate-spacey">
+            
+            {/* Modal Header */}
+            <div className="bg-brand-slate text-white p-5 flex items-center justify-between border-b border-stone-800">
+              <div className="flex items-center gap-2.5">
+                <Coffee className="w-5 h-5 text-brand-yellow" />
+                <h3 className="font-serif text-lg font-bold text-white">Sabor Completo Divinos!</h3>
+              </div>
+              <button 
+                onClick={() => setShowReinforceModal(false)}
+                className="p-1.5 text-stone-400 hover:text-white hover:bg-stone-800 rounded-lg transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 space-y-4">
+              <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200">
+                <p className="font-serif text-base font-extrabold text-stone-900 leading-snug mb-1">
+                  Seu almoço está pronto, mas o que acha de uma bebida ou sobremesa para acompanhar?
+                </p>
+                <p className="text-xs text-stone-600 leading-normal">
+                  Notamos que você não escolheu nenhuma bebida (suco natural ou refrigerante) e nenhuma sobremesa para adoçar seu dia. Adicione com 1 clique abaixo ou prossiga sem elas se preferir!
+                </p>
+              </div>
+
+              {/* Recommendations Row */}
+              <div className="space-y-3">
+                <h4 className="text-[10px] font-black uppercase text-stone-400 tracking-wider">Escolhas Mais Pedidas:</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {(() => {
+                    const recommendedJuice = (allProducts || []).find(p => p.id === "suco-laranja" && p.isActive !== false) 
+                      || (allProducts || []).find(p => p.category === "Sucos Naturais" && p.isActive !== false);
+
+                    const recommendedCoca = (allProducts || []).find(p => p.id === "coca-cola-lata" && p.isActive !== false)
+                      || (allProducts || []).find(p => p.category === "Bebidas" && p.isActive !== false);
+
+                    const recommendedPudim = (allProducts || []).find(p => p.id === "pudim" && p.isActive !== false)
+                      || (allProducts || []).find(p => p.category === "Sobremesas" && p.isActive !== false);
+
+                    const itemsToSuggest = [recommendedJuice || recommendedCoca, recommendedPudim].filter(Boolean) as Product[];
+
+                    return itemsToSuggest.map(item => {
+                      const isDessert = item.category === "Sobremesas";
+                      return (
+                        <div key={item.id} className="bg-stone-50 border border-stone-200/80 rounded-2xl p-3 flex items-center justify-between gap-3 shadow-sm hover:border-stone-300 transition-all">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <img 
+                              src={optimizeImageUrl(item.image, { width: 80, quality: 75 })} 
+                              alt={item.name} 
+                              className="w-10 h-10 object-cover rounded-xl border border-stone-200/60 shadow-inner block"
+                            />
+                            <div className="min-w-0">
+                              <p className="text-xs font-black text-stone-900 truncate leading-tight">{item.name}</p>
+                              <p className="text-[10px] text-stone-500 font-sans mt-0.5">{item.category}</p>
+                              <p className="text-[11px] text-emerald-700 font-extrabold mt-1">R$ {item.price.toFixed(2).replace(".", ",")}</p>
+                            </div>
+                          </div>
+                          
+                          {(() => {
+                            const inCart = cartItems.find(c => c.product.id === item.id);
+                            if (inCart) {
+                              return (
+                                <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-1 rounded-lg shrink-0">
+                                  ✓ Adicionado ({inCart.quantity})
+                                </span>
+                              );
+                            }
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => onAdd(item)}
+                                className={`text-[10px] font-black uppercase px-2.5 py-1.5 rounded-xl transition cursor-pointer shrink-0 flex items-center gap-0.5 active:scale-95 ${
+                                  isDessert 
+                                    ? "bg-brand-red text-white hover:bg-brand-red-dark" 
+                                    : "bg-brand-yellow text-stone-950 hover:bg-amber-400"
+                                }`}
+                              >
+                                <Plus className="w-3 h-3 stroke-[3]" /> Adicionar
+                              </button>
+                            );
+                          })()}
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+
+            </div>
+
+            {/* Modal Actions */}
+            <div className="bg-stone-50 border-t border-stone-100 p-5 flex flex-col sm:flex-row items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowReinforceModal(false);
+                  onSubmitOrder();
+                }}
+                className="w-full sm:flex-1 bg-stone-100 hover:bg-stone-200 text-stone-700 hover:text-stone-950 font-black py-3 px-4 rounded-xl text-[10px] uppercase tracking-widest transition text-center cursor-pointer order-2 sm:order-1"
+              >
+                Não, enviar assim mesmo
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowReinforceModal(false);
+                }}
+                className="w-full sm:flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-3.5 px-4 rounded-xl text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-700/10 transition active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 order-1 sm:order-2"
+              >
+                Escolher Bebida/Sobremesa
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }
