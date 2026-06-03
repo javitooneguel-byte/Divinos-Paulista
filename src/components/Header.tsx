@@ -5,6 +5,7 @@
 
 import { Clock, MessageSquare, Compass, ShieldCheck } from "lucide-react";
 import { RestaurantConfig } from "../types";
+import { optimizeImageUrl, imagePerfProps } from "../lib/imageOptimizer";
 
 interface HeaderProps {
   onScrollToMenu: () => void;
@@ -12,6 +13,15 @@ interface HeaderProps {
 }
 
 export function Header({ onScrollToMenu, restaurant }: HeaderProps) {
+  // Optimize banner with a balanced desktop/mobile width (1000px) and quality for rapid initial draw
+  const heroBannerUrl = optimizeImageUrl(
+    restaurant.banner || "https://images.unsplash.com/photo-1541518763669-27fef04b14ea?q=80&w=1200&auto=format&fit=crop",
+    { width: 1000, quality: 75 }
+  );
+
+  // Logo is small, so we request 100px width with extra compression
+  const logoUrl = restaurant.logo ? optimizeImageUrl(restaurant.logo, { width: 100, quality: 75 }) : "";
+
   return (
     <header className="relative bg-brand-slate text-white overflow-hidden border-b-4 border-brand-yellow">
       {/* Decorative background visual ambient elements */}
@@ -20,9 +30,11 @@ export function Header({ onScrollToMenu, restaurant }: HeaderProps) {
 
       {/* Actual Delicious Hero Banner Image */}
       <img
-        src={restaurant.banner || "https://images.unsplash.com/photo-1541518763669-27fef04b14ea?q=80&w=1200&auto=format&fit=crop"}
+        src={heroBannerUrl}
         alt="Comida Brasileira Autêntica"
         className="absolute inset-0 w-full h-full object-cover object-center scaling-slow"
+        loading="eager"
+        {...imagePerfProps}
         referrerPolicy="no-referrer"
       />
 
@@ -32,8 +44,10 @@ export function Header({ onScrollToMenu, restaurant }: HeaderProps) {
           <div className="flex items-center gap-3">
             {restaurant.logo ? (
               <img
-                src={restaurant.logo}
+                src={logoUrl}
                 alt={restaurant.companyName}
+                loading="eager"
+                {...imagePerfProps}
                 className="w-12 h-12 rounded-2xl object-cover shadow-lg transform -rotate-3 border-2 border-brand-yellow"
               />
             ) : (

@@ -6,6 +6,7 @@
 import { useState } from "react";
 import { Flame, Plus, Sparkles } from "lucide-react";
 import { Product } from "../types";
+import { optimizeImageUrl, imagePerfProps } from "../lib/imageOptimizer";
 
 interface PratoDoDiaProps {
   product: Product;
@@ -18,6 +19,9 @@ export function PratoDoDia({ product, onAdd, cartQuantity }: PratoDoDiaProps) {
   const priceParts = product.price.toFixed(2).split(".");
   const reais = priceParts[0];
   const centavos = priceParts[1];
+
+  // Optimize featured banner image URL to match large display area (750px width)
+  const optimizedUrl = optimizeImageUrl(product.image, { width: 750, quality: 75 });
 
   return (
     <div id="prato-do-dia-section" className="w-full max-w-5xl mx-auto px-4 py-8">
@@ -37,9 +41,10 @@ export function PratoDoDia({ product, onAdd, cartQuantity }: PratoDoDiaProps) {
             </div>
           )}
           <img
-            src={product.image}
+            src={optimizedUrl}
             alt="Prato do Dia Divinos Paulista"
             loading="eager"
+            {...imagePerfProps}
             onLoad={() => setIsImageLoaded(true)}
             className={`w-full h-full object-cover object-center group-hover:scale-105 transition-all duration-700 ${isImageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
             referrerPolicy="no-referrer"

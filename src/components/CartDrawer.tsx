@@ -6,6 +6,7 @@
 import { X, ShoppingBag, Plus, Minus, Trash2, Send, CreditCard } from "lucide-react";
 import { CartItem, Customer, Address } from "../types";
 import { CheckoutForm } from "./CheckoutForm";
+import { optimizeImageUrl, imagePerfProps } from "../lib/imageOptimizer";
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -110,15 +111,19 @@ export function CartDrawer({
                   </h3>
                   
                   <div className="divide-y divide-stone-100">
-                    {cartItems.map((item) => (
-                      <div key={item.product.id} className="py-3.5 flex items-start gap-3.5 group">
-                        <img
-                          src={item.product.image}
-                          alt={item.product.name}
-                          className="w-14 h-14 object-cover rounded-xl shrink-0 border border-stone-100"
-                          referrerPolicy="no-referrer"
-                        />
-                        <div className="flex-1 min-w-0">
+                    {cartItems.map((item) => {
+                      const optimizedThumbUrl = optimizeImageUrl(item.product.image, { width: 100, quality: 70 });
+                      return (
+                        <div key={item.product.id} className="py-3.5 flex items-start gap-3.5 group">
+                          <img
+                            src={optimizedThumbUrl}
+                            alt={item.product.name}
+                            loading="lazy"
+                            {...imagePerfProps}
+                            className="w-14 h-14 object-cover rounded-xl shrink-0 border border-stone-100"
+                            referrerPolicy="no-referrer"
+                          />
+                          <div className="flex-1 min-w-0">
                           <h4 className="font-sans text-sm font-bold text-stone-950 truncate leading-tight mb-0.5">
                             {item.product.name}
                           </h4>
@@ -164,7 +169,8 @@ export function CartDrawer({
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
-                    ))}
+                    );
+                  })}
                   </div>
                 </div>
 

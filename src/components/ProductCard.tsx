@@ -6,6 +6,7 @@
 import { useState } from "react";
 import { Plus, Minus, ShoppingBag } from "lucide-react";
 import { Product } from "../types";
+import { optimizeImageUrl, imagePerfProps } from "../lib/imageOptimizer";
 
 interface ProductCardProps {
   product: Product;
@@ -24,6 +25,9 @@ export function ProductCard({ product, quantityInCart, onAdd, onRemoveOne }: Pro
     currency: "BRL"
   }).format(product.price);
 
+  // Optimize product image URL to be highly compressed (450px wide for grid thumbnails on mobile/desktop)
+  const optimizedUrl = optimizeImageUrl(product.image, { width: 450, quality: 70 });
+
   return (
     <div className="bg-white rounded-2xl border border-zinc-100 overflow-hidden shadow-card hover:shadow-md transition duration-200 flex flex-col h-full group">
       {/* Product Image */}
@@ -36,9 +40,10 @@ export function ProductCard({ product, quantityInCart, onAdd, onRemoveOne }: Pro
           </div>
         )}
         <img
-          src={product.image}
+          src={optimizedUrl}
           alt={product.name}
           loading="lazy"
+          {...imagePerfProps}
           onLoad={() => setIsImageLoaded(true)}
           className={`w-full h-full object-cover group-hover:scale-105 transition-all duration-500 ${isImageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
           referrerPolicy="no-referrer"
