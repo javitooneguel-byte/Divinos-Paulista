@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { useState } from "react";
 import { Clock, MessageSquare, Compass, ShieldCheck } from "lucide-react";
 import { RestaurantConfig } from "../types";
 import { optimizeImageUrl, imagePerfProps } from "../lib/imageOptimizer";
@@ -13,10 +14,17 @@ interface HeaderProps {
 }
 
 export function Header({ onScrollToMenu, restaurant }: HeaderProps) {
-  // Optimize banner with a balanced desktop/mobile width (1000px) and quality for rapid initial draw
+  const [bannerError, setBannerError] = useState(false);
+  const [logoError, setLogoError] = useState(false);
+
+  // Default fallbacks
+  const defaultBanner = "https://images.unsplash.com/photo-1541518763669-27fef04b14ea?q=80&w=1200&auto=format&fit=crop";
+  const defaultLogo = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=100&q=80";
+
+  // Optimize banner with a balanced desktop/mobile width (1200px) and quality for rapid initial draw
   const heroBannerUrl = optimizeImageUrl(
-    restaurant.banner || "https://images.unsplash.com/photo-1541518763669-27fef04b14ea?q=80&w=1200&auto=format&fit=crop",
-    { width: 1000, quality: 75 }
+    restaurant.banner || defaultBanner,
+    { width: 1200, quality: 75 }
   );
 
   // Logo is small, so we request 100px width with extra compression
@@ -30,11 +38,14 @@ export function Header({ onScrollToMenu, restaurant }: HeaderProps) {
 
       {/* Actual Delicious Hero Banner Image */}
       <img
-        src={heroBannerUrl}
+        src={bannerError ? defaultBanner : heroBannerUrl}
         alt="Comida Brasileira Autêntica"
         className="absolute inset-0 w-full h-full object-cover object-center scaling-slow"
         loading="eager"
+        width="1200"
+        height="600"
         {...imagePerfProps}
+        onError={() => setBannerError(true)}
         referrerPolicy="no-referrer"
       />
 
@@ -44,10 +55,13 @@ export function Header({ onScrollToMenu, restaurant }: HeaderProps) {
           <div className="flex items-center gap-3">
             {restaurant.logo ? (
               <img
-                src={logoUrl}
+                src={logoError ? defaultLogo : logoUrl}
                 alt={restaurant.companyName}
                 loading="eager"
+                width="48"
+                height="48"
                 {...imagePerfProps}
+                onError={() => setLogoError(true)}
                 className="w-12 h-12 rounded-2xl object-cover shadow-lg transform -rotate-3 border-2 border-brand-yellow"
               />
             ) : (

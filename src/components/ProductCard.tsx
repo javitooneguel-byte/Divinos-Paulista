@@ -7,6 +7,7 @@ import { useState, useEffect } from "react";
 import { Plus, Minus, ShoppingBag } from "lucide-react";
 import { Product } from "../types";
 import { optimizeImageUrl, imagePerfProps } from "../lib/imageOptimizer";
+
 import { safeTrack } from "../lib/metaPixel";
 
 interface ProductCardProps {
@@ -19,6 +20,7 @@ interface ProductCardProps {
 
 export function ProductCard({ product, quantityInCart, onAdd, onRemoveOne }: ProductCardProps) {
   const [isImageLoaded, setIsImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
     // Safely trigger ViewContent event for this loaded product item
@@ -38,6 +40,9 @@ export function ProductCard({ product, quantityInCart, onAdd, onRemoveOne }: Pro
     currency: "BRL"
   }).format(product.price);
 
+  // Fallback plate image when user's actual image is broken or timed out
+  const fallbackUrl = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=450&q=80";
+
   // Optimize product image URL to be highly compressed (450px wide for grid thumbnails on mobile/desktop)
   const optimizedUrl = optimizeImageUrl(product.image, { width: 450, quality: 70 });
 
@@ -53,11 +58,17 @@ export function ProductCard({ product, quantityInCart, onAdd, onRemoveOne }: Pro
           </div>
         )}
         <img
-          src={optimizedUrl}
+          src={imageError ? fallbackUrl : (optimizedUrl || fallbackUrl)}
           alt={product.name}
           loading="lazy"
+          width="450"
+          height="300"
           {...imagePerfProps}
           onLoad={() => setIsImageLoaded(true)}
+          onError={() => {
+            setImageError(true);
+            setIsImageLoaded(true);
+          }}
           className={`w-full h-full object-cover group-hover:scale-105 transition-all duration-500 ${isImageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
           referrerPolicy="no-referrer"
         />

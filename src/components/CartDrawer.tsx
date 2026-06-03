@@ -382,63 +382,108 @@ export function CartDrawer({
 
               {/* Recommendations Row */}
               <div className="space-y-3">
-                <h4 className="text-[10px] font-black uppercase text-stone-400 tracking-wider">Escolhas Mais Pedidas:</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <h4 className="text-[10px] font-black uppercase text-stone-400 tracking-wider">Acompanhamentos ideais:</h4>
+                <div className="max-h-[300px] overflow-y-auto pr-1 space-y-4 scrollbar-thin scrollbar-thumb-stone-200 scrollbar-track-stone-50">
                   {(() => {
-                    const recommendedJuice = (allProducts || []).find(p => p.id === "suco-laranja" && p.isActive !== false) 
-                      || (allProducts || []).find(p => p.category === "Sucos Naturais" && p.isActive !== false);
+                    const activeProducts = allProducts || [];
+                    const listBebidas = activeProducts.filter(p => p.category === "Bebidas" && p.isActive !== false);
+                    const listSucos = activeProducts.filter(p => p.category === "Sucos Naturais" && p.isActive !== false);
+                    const listSobremesas = activeProducts.filter(p => p.category === "Sobremesas" && p.isActive !== false);
 
-                    const recommendedCoca = (allProducts || []).find(p => p.id === "coca-cola-lata" && p.isActive !== false)
-                      || (allProducts || []).find(p => p.category === "Bebidas" && p.isActive !== false);
-
-                    const recommendedPudim = (allProducts || []).find(p => p.id === "pudim" && p.isActive !== false)
-                      || (allProducts || []).find(p => p.category === "Sobremesas" && p.isActive !== false);
-
-                    const itemsToSuggest = [recommendedJuice || recommendedCoca, recommendedPudim].filter(Boolean) as Product[];
-
-                    return itemsToSuggest.map(item => {
+                    const renderRecommCard = (item: Product) => {
+                      const inCart = cartItems.find(c => c.product.id === item.id);
                       const isDessert = item.category === "Sobremesas";
                       return (
-                        <div key={item.id} className="bg-stone-50 border border-stone-200/80 rounded-2xl p-3 flex items-center justify-between gap-3 shadow-sm hover:border-stone-300 transition-all">
-                          <div className="flex items-center gap-2.5 min-w-0">
+                        <div key={item.id} className="bg-stone-50 border border-stone-200/80 rounded-2xl p-2.5 flex items-center justify-between gap-2.5 shadow-sm hover:border-stone-300 transition-all">
+                          <div className="flex items-center gap-2 min-w-0">
                             <img 
                               src={optimizeImageUrl(item.image, { width: 80, quality: 75 })} 
                               alt={item.name} 
                               className="w-10 h-10 object-cover rounded-xl border border-stone-200/60 shadow-inner block"
                             />
-                            <div className="min-w-0">
+                            <div className="min-w-0 font-sans">
                               <p className="text-xs font-black text-stone-900 truncate leading-tight">{item.name}</p>
                               <p className="text-[10px] text-stone-500 font-sans mt-0.5">{item.category}</p>
                               <p className="text-[11px] text-emerald-700 font-extrabold mt-1">R$ {item.price.toFixed(2).replace(".", ",")}</p>
                             </div>
                           </div>
                           
-                          {(() => {
-                            const inCart = cartItems.find(c => c.product.id === item.id);
-                            if (inCart) {
-                              return (
-                                <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-1 rounded-lg shrink-0">
-                                  ✓ Adicionado ({inCart.quantity})
-                                </span>
-                              );
-                            }
-                            return (
+                          {inCart ? (
+                            <div className="flex items-center bg-white border border-stone-200/80 rounded-lg p-0.5 shrink-0 shadow-sm">
+                              <button
+                                type="button"
+                                onClick={() => onRemoveOne(item.id)}
+                                className="w-5 h-5 rounded hover:bg-stone-100 text-stone-600 flex items-center justify-center transition active:scale-90"
+                              >
+                                <Minus className="w-2.5 h-2.5" />
+                              </button>
+                              <span className="text-[11px] font-extrabold text-stone-900 px-1.5 min-w-[12px] text-center">
+                                {inCart.quantity}
+                              </span>
                               <button
                                 type="button"
                                 onClick={() => onAdd(item)}
-                                className={`text-[10px] font-black uppercase px-2.5 py-1.5 rounded-xl transition cursor-pointer shrink-0 flex items-center gap-0.5 active:scale-95 ${
-                                  isDessert 
-                                    ? "bg-brand-red text-white hover:bg-brand-red-dark" 
-                                    : "bg-brand-yellow text-stone-950 hover:bg-amber-400"
-                                }`}
+                                className="w-5 h-5 rounded hover:bg-stone-100 text-stone-600 flex items-center justify-center transition active:scale-90"
                               >
-                                <Plus className="w-3 h-3 stroke-[3]" /> Adicionar
+                                <Plus className="w-2.5 h-2.5" />
                               </button>
-                            );
-                          })()}
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => onAdd(item)}
+                              className={`text-[10px] font-black uppercase px-2.5 py-1.5 rounded-xl transition cursor-pointer shrink-0 flex items-center gap-0.5 active:scale-95 ${
+                                isDessert 
+                                  ? "bg-brand-red text-white hover:bg-brand-red-dark" 
+                                  : "bg-brand-yellow text-stone-950 hover:bg-amber-400"
+                              }`}
+                            >
+                              <Plus className="w-3 h-3 stroke-[3]" /> Adicionar
+                            </button>
+                          )}
                         </div>
                       );
-                    });
+                    };
+
+                    return (
+                      <>
+                        {/* Refrigerantes (Bebidas) */}
+                        {listBebidas.length > 0 && (
+                          <div className="space-y-1.5">
+                            <h5 className="text-[10px] font-bold uppercase tracking-wider text-stone-400 sticky top-0 bg-white py-1 z-10 flex items-center gap-1">
+                              <span>🥤</span> Refrigerantes & Bebidas
+                            </h5>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {listBebidas.map(renderRecommCard)}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Sucos Naturais */}
+                        {listSucos.length > 0 && (
+                          <div className="space-y-1.5">
+                            <h5 className="text-[10px] font-bold uppercase tracking-wider text-stone-400 sticky top-0 bg-white py-1 z-10 flex items-center gap-1">
+                              <span>🍹</span> Sucos Naturais
+                            </h5>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {listSucos.map(renderRecommCard)}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Sobremesas */}
+                        {listSobremesas.length > 0 && (
+                          <div className="space-y-1.5">
+                            <h5 className="text-[10px] font-bold uppercase tracking-wider text-stone-400 sticky top-0 bg-white py-1 z-10 flex items-center gap-1">
+                              <span>🍰</span> Sobremesas Geladas
+                            </h5>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {listSobremesas.map(renderRecommCard)}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
                   })()}
                 </div>
               </div>

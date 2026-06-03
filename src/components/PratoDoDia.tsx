@@ -17,6 +17,7 @@ interface PratoDoDiaProps {
 
 export function PratoDoDia({ product, onAdd, cartQuantity }: PratoDoDiaProps) {
   const [isImageLoaded, setIsImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
     // Safely trigger ViewContent event for Prato do Dia
@@ -32,6 +33,9 @@ export function PratoDoDia({ product, onAdd, cartQuantity }: PratoDoDiaProps) {
   const priceParts = product.price.toFixed(2).split(".");
   const reais = priceParts[0];
   const centavos = priceParts[1];
+
+  // Fallback plate image when user's actual image is broken or timed out
+  const fallbackUrl = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=750&q=75";
 
   // Optimize featured banner image URL to match large display area (750px width)
   const optimizedUrl = optimizeImageUrl(product.image, { width: 750, quality: 75 });
@@ -54,11 +58,17 @@ export function PratoDoDia({ product, onAdd, cartQuantity }: PratoDoDiaProps) {
             </div>
           )}
           <img
-            src={optimizedUrl}
+            src={imageError ? fallbackUrl : (optimizedUrl || fallbackUrl)}
             alt="Prato do Dia Divinos Paulista"
             loading="eager"
+            width="750"
+            height="500"
             {...imagePerfProps}
             onLoad={() => setIsImageLoaded(true)}
+            onError={() => {
+              setImageError(true);
+              setIsImageLoaded(true);
+            }}
             className={`w-full h-full object-cover object-center group-hover:scale-105 transition-all duration-700 ${isImageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
             referrerPolicy="no-referrer"
           />

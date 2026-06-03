@@ -48,3 +48,83 @@ export function optimizeImageUrl(url: string, options: OptimizeImageOptions = {}
 export const imagePerfProps = {
   decoding: "async" as const,
 };
+
+/**
+ * Resizes an image file to a maximum dimension while maintaining aspect ratio,
+ * converts it to WebP format, and applies custom image compression.
+ * Done purely client-side using Canvas.
+ */
+export function compressAndResizeImage(
+  file: File,
+  maxDimension: number,
+  quality: number = 0.8
+): Promise<File> {
+  return new Promise((resolve, reject) => {
+    // If browser doesn't support FileReader or Canvas elements, fallback cleanly
+    if (typeof window === "undefined" || !window.FileReader || !window.HTMLCanvasElement) {
+      resolve(file);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        // Calculate new dimensions keeping the aspect ratio
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxDimension) {
+          height = Math.round((height * maxDimension) / width);
+          width = maxDimension;
+        }
+
+        // Create canvas and draw scaled image
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(file); // Fallback to raw file if canvas context is unavailable
+          return;
+        }
+
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Convert canvas image to WebP blob
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              resolve(file); // Fallback to raw file if compression fails
+              return;
+            }
+
+            // Create a webp file with a corresponding filename (switching extension to webp)
+            const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+            const newFileName = `${baseName}.webp`;
+            const webpFile = new File([blob], newFileName, {
+              type: "image/webp",
+              lastModified: Date.now(),
+            });
+
+            resolve(webpFile);
+          },
+          "image/webp",
+          quality
+        );
+      };
+      img.onerror = (err) => {
+        resolve(file); // Fallback is safe
+      };
+    };
+    reader.onerror = (err) => {
+      resolve(file); // Fallback is safe
+    };
+  });
+}
+

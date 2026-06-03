@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { AppDataStore, Product, CategoryConfig, PratoDoDiaConfig, RestaurantConfig } from "../types";
 import { loadAppData, saveAppData, resetAppDataToDefault } from "../lib/db";
+import { compressAndResizeImage } from "../lib/imageOptimizer";
 import { 
   supabase,
   loginWithPasswordOnly, 
@@ -238,14 +239,30 @@ export function AdminPanel() {
   }, [isAuthenticated]);
 
   // Image Upload handler replacing Base64 Reader
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string) => void) => {
+  const handleFileChange = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    callback: (url: string) => void,
+    imageType: "logo" | "banner" | "product" = "product"
+  ) => {
     const files = e.target.files;
     if (files && files[0]) {
-      const file = files[0];
+      const rawFile = files[0];
       try {
         setIsSyncing(true);
-        showToast("Enviando foto para o Supabase...", "success");
-        const publicUrl = await uploadImage(file);
+        showToast("Processando e otimizando imagem...", "success");
+
+        let targetWidth = 800;
+        if (imageType === "logo") {
+          targetWidth = 400;
+        } else if (imageType === "banner") {
+          targetWidth = 1200;
+        }
+
+        // Convert and compress to WebP using quality 0.80 (between 0.75 and 0.85)
+        const optimizedFile = await compressAndResizeImage(rawFile, targetWidth, 0.80);
+
+        showToast("Enviando foto otimizada para o Supabase...", "success");
+        const publicUrl = await uploadImage(optimizedFile);
         if (publicUrl) {
           callback(publicUrl);
           showToast("Foto enviada com sucesso!", "success");
@@ -1332,7 +1349,7 @@ export function AdminPanel() {
                               restaurant: { ...prev.restaurant, logo: base64 }
                             }));
                             showToast("Logo atualizado localmente!", "success");
-                          })}
+                          }, "logo")}
                         />
                       </label>
                       {data.restaurant.logo && (
@@ -1369,7 +1386,7 @@ export function AdminPanel() {
                               restaurant: { ...prev.restaurant, banner: base64 }
                             }));
                             showToast("Capa atualizada localmente!", "success");
-                          })}
+                          }, "banner")}
                         />
                       </label>
                     </div>
@@ -1473,7 +1490,7 @@ export function AdminPanel() {
                             pratoDoDia: { ...prev.pratoDoDia, image: base64 }
                           }));
                           showToast("Foto do especial do dia foi alterada!", "success");
-                        })}
+                        }, "banner")}
                       />
                     </label>
                   </div>
@@ -1747,7 +1764,7 @@ export function AdminPanel() {
                             onChange={(e) => handleFileChange(e, (base64) => {
                               setProdImage(base64);
                               showToast("Foto processada!", "success");
-                            })}
+                            }, "product")}
                           />
                         </label>
                       </div>
