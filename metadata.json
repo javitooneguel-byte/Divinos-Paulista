@@ -1,0 +1,6 @@
+{
+  "name": "Divinos Paulista",
+  "description": "Cardápio digital moderno e responsivo do restaurante brasileiro Divinos Paulista. Faça seu pedido de almoço caseiro e envie diretamente pelo WhatsApp!",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
