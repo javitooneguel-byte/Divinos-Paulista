@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { User, Phone, MapPin, CreditCard, Clipboard, Loader2, AlertCircle } from "lucide-react";
+import { User, Phone, MapPin, CreditCard, Loader2, AlertCircle } from "lucide-react";
 import { Address, Customer } from "../types";
 
 interface CheckoutFormProps {
@@ -317,26 +317,6 @@ export function CheckoutForm({
               Praticidade total. A chave de pagamento Pix será compartilhada diretamente no seu WhatsApp para confirmação rápida da cozinha.
             </p>
           </div>
-        </div>
-      </div>
-
-      {/* 4. OBSERVAÇÕES DO PEDIDO */}
-      <div className="bg-white p-5 sm:p-6 rounded-2xl border border-stone-100 shadow-sm">
-        <h3 className="font-serif text-lg font-bold text-stone-900 border-b border-stone-100 pb-3 flex items-center gap-2 mb-4">
-          <Clipboard className="w-5 h-5 text-brand-red" />
-          Observações do Pedido (Opcional)
-        </h3>
-
-        <div>
-          <label htmlFor="order-obs" className="sr-only">Observações do pedido</label>
-          <textarea
-            id="order-obs"
-            value={observation}
-            onChange={(e) => onUpdateObservation(e.target.value)}
-            placeholder="Ex: sem cebola na salada, mandar talheres, ponto da carne mal passado, etc."
-            rows={3}
-            className="w-full bg-stone-50 border border-stone-200 focus:border-brand-red focus:bg-white rounded-xl py-3 px-4 text-sm font-sans font-medium text-stone-900 outline-none transition duration-150 resize-none"
-          />
         </div>
       </div>
     </div>

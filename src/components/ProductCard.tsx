@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { Plus, Minus, ShoppingBag } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Product } from "../types";
 import { optimizeImageUrl, imagePerfProps } from "../lib/imageOptimizer";
 
@@ -14,11 +14,10 @@ interface ProductCardProps {
   product: Product;
   quantityInCart: number;
   onAdd: (product: Product) => void;
-  onRemoveOne: (productId: string) => void;
   key?: string;
 }
 
-export function ProductCard({ product, quantityInCart, onAdd, onRemoveOne }: ProductCardProps) {
+export function ProductCard({ product, quantityInCart, onAdd }: ProductCardProps) {
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
 
@@ -96,45 +95,26 @@ export function ProductCard({ product, quantityInCart, onAdd, onRemoveOne }: Pro
         </div>
 
         {/* Pricing and Adjustive Buttons */}
-        <div className="flex items-center justify-between gap-2.5 pt-4 border-t border-stone-100/60 mt-auto">
+        <div className="flex items-center justify-between gap-2 pt-4 border-t border-stone-100/60 mt-auto">
           <div className="flex flex-col">
             <span className="text-[10px] uppercase font-sans text-stone-400 font-medium">Preço</span>
-            <span className="font-extrabold text-stone-950 font-sans text-lg leading-tight">{formattedPrice}</span>
+            <span className="font-extrabold text-stone-950 font-sans text-base sm:text-lg leading-tight">{formattedPrice}</span>
           </div>
 
-          <div className="flex items-center">
-            {quantityInCart > 0 ? (
-              <div className="flex items-center bg-stone-100 rounded-xl p-1 border border-stone-200/50">
-                <button
-                  type="button"
-                  onClick={() => onRemoveOne(product.id)}
-                  aria-label="Remover um item"
-                  className="w-8 h-8 rounded-lg hover:bg-white text-stone-700 flex items-center justify-center transition active:scale-90"
-                >
-                  <Minus className="w-3.5 h-3.5" />
-                </button>
-                <span className="font-sans font-bold text-stone-900 text-sm px-2.5 min-w-[20px] text-center">
-                  {quantityInCart}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => onAdd(product)}
-                  aria-label="Adicionar outro item"
-                  className="w-8 h-8 rounded-lg hover:bg-white text-stone-700 flex items-center justify-center transition active:scale-90"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => onAdd(product)}
-                className="bg-brand-red hover:bg-brand-red-dark text-white font-bold py-2 px-3.5 rounded-xl transition duration-150 flex items-center gap-1.5 shadow-sm active:scale-95 text-xs uppercase tracking-wider"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Adicionar
-              </button>
+          <div className="flex items-center gap-1.5">
+            {quantityInCart > 0 && (
+              <span className="text-[10px] bg-amber-100 text-amber-800 font-extrabold px-2 py-1 rounded-lg shrink-0">
+                x{quantityInCart} no pedido
+              </span>
             )}
+            <button
+              type="button"
+              onClick={() => onAdd(product)}
+              className="bg-brand-red hover:bg-brand-red-dark text-white font-bold py-2 px-3 sm:px-3.5 rounded-xl transition duration-150 flex items-center gap-1 shadow-sm active:scale-95 text-xs uppercase tracking-wider cursor-pointer font-sans"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Adicionar
+            </button>
           </div>
         </div>
       </div>

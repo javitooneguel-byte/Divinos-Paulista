@@ -29,6 +29,7 @@ import { CategoryFilters } from "./components/CategoryFilters";
 import { ProductCard } from "./components/ProductCard";
 import { CartDrawer } from "./components/CartDrawer";
 import { AdminPanel } from "./components/AdminPanel";
+import { ProductModal } from "./components/ProductModal";
 import { loadAppData } from "./lib/db";
 import { Product, CartItem, Customer, Address } from "./types";
 import { 
@@ -186,6 +187,10 @@ export default function App() {
 
   // Cart calculation state
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  
+  // Product detail modal state
+  const [selectedProductForModal, setSelectedProductForModal] = useState<Product | null>(null);
+  const [isProductModalOpen, setIsProductModalOpen] = useState<boolean>(false);
 
   // Checkout inputs state
   const [customer, setCustomer] = useState<Customer>({
@@ -261,7 +266,12 @@ export default function App() {
 
   // Cart operations
   const handleAddToCart = (product: Product) => {
-    // Safely trigger Meta Pixel AddToCart event with structured meta details
+    // Opening the details modal instead of directly adding
+    setSelectedProductForModal(product);
+    setIsProductModalOpen(true);
+  };
+
+  const handleAddToCartDirectly = (product: Product) => {
     safeTrack("AddToCart", {
       content_name: product.name,
       content_category: product.category,
@@ -272,33 +282,74 @@ export default function App() {
     });
 
     setCartItems((prevItems) => {
-      const existing = prevItems.find((item) => item.product.id === product.id);
+      const compositeId = product.id; // direct adds have empty observations by default
+      const existing = prevItems.find((item) => item.id === compositeId);
       if (existing) {
         return prevItems.map((item) =>
-          item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+          item.id === compositeId ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
-      return [...prevItems, { product, quantity: 1 }];
+      return [...prevItems, { id: compositeId, product, quantity: 1, observation: "" }];
     });
   };
 
-  const handleRemoveOneFromCart = (productId: string) => {
+  const handleAddToCartWithDetails = (product: Product, quantity: number, observation: string) => {
+    safeTrack("AddToCart", {
+      content_name: product.name,
+      content_category: product.category,
+      value: product.price,
+      currency: "BRL",
+      content_ids: [product.id],
+      content_type: "product"
+    });
+
+    const obsText = observation.trim();
+    const compositeId = product.id + (obsText ? `-${obsText.toLowerCase()}` : "");
+
     setCartItems((prevItems) => {
-      const existing = prevItems.find((item) => item.product.id === productId);
+      const existing = prevItems.find((item) => item.id === compositeId);
+      if (existing) {
+        return prevItems.map((item) =>
+          item.id === compositeId ? { ...item, quantity: item.quantity + quantity } : item
+        );
+      }
+      return [...prevItems, { id: compositeId, product, quantity, observation: obsText }];
+    });
+  };
+
+  const handleCartAddAndIncrement = (product: Product, quantity: number = 1, observation?: string) => {
+    // High-level utility for cart drawer buttons to safely increment/decrement config items
+    const obsText = observation?.trim() || "";
+    const compositeId = product.id + (obsText ? `-${obsText.toLowerCase()}` : "");
+
+    setCartItems((prevItems) => {
+      const existing = prevItems.find((item) => item.id === compositeId);
+      if (existing) {
+        return prevItems.map((item) =>
+          item.id === compositeId ? { ...item, quantity: item.quantity + quantity } : item
+        );
+      }
+      return [...prevItems, { id: compositeId, product, quantity, observation: obsText }];
+    });
+  };
+
+  const handleRemoveOneFromCart = (cartItemId: string) => {
+    setCartItems((prevItems) => {
+      const existing = prevItems.find((item) => item.id === cartItemId);
       if (existing) {
         if (existing.quantity === 1) {
-          return prevItems.filter((item) => item.product.id !== productId);
+          return prevItems.filter((item) => item.id !== cartItemId);
         }
         return prevItems.map((item) =>
-          item.product.id === productId ? { ...item, quantity: item.quantity - 1 } : item
+          item.id === cartItemId ? { ...item, quantity: item.quantity - 1 } : item
         );
       }
       return prevItems;
     });
   };
 
-  const handleRemoveAllFromCart = (productId: string) => {
-    setCartItems((prevItems) => prevItems.filter((item) => item.product.id !== productId));
+  const handleRemoveAllFromCart = (cartItemId: string) => {
+    setCartItems((prevItems) => prevItems.filter((item) => item.id !== cartItemId));
   };
 
   // Safe scroll action to Catalog
@@ -422,22 +473,19 @@ export default function App() {
     messageText += `Pedido:\n`;
     messageText += `Itens:\n`;
     cartItems.forEach((item) => {
-      const itemSub = item.product.price * item.quantity;
-      messageText += `- ${item.quantity}x ${item.product.name} - R$ ${item.product.price.toFixed(2).replace(".", ",")} (Unit) / Total: R$ ${itemSub.toFixed(2).replace(".", ",")}\n`;
+      const itemPriceStr = item.product.price.toFixed(2).replace(".", ",");
+      messageText += `${item.quantity}x ${item.product.name} - R$ ${itemPriceStr}\n`;
+      if (item.observation?.trim()) {
+        messageText += `Obs: ${item.observation.trim()}\n`;
+      }
+      messageText += `\n`;
     });
-    messageText += `\n`;
     messageText += `Subtotal: ${formatPriceBrl(cartSubtotal)}\n`;
     messageText += `Taxa de entrega: ${formatPriceBrl(deliveryCost)}\n`;
     messageText += `Total: ${formatPriceBrl(cartTotal)}\n\n`;
 
     messageText += `Pagamento:\n`;
-    messageText += `Pix\n\n`;
-
-    if (observation.trim()) {
-      messageText += `Observação: ${observation.trim()}\n`;
-    } else {
-      messageText += `Observação: Nenhuma\n`;
-    }
+    messageText += `Pix\n`;
 
     const compiledUrl = `https://wa.me/${appData.restaurant.whatsapp}?text=${encodeURIComponent(messageText)}`;
     
@@ -464,7 +512,7 @@ export default function App() {
         <PratoDoDia 
           product={pratoDoDiaProduct} 
           onAdd={handleAddToCart}
-          cartQuantity={cartItems.find((item) => item.product.id === pratoDoDiaProduct.id)?.quantity || 0}
+          cartQuantity={cartItems.filter((item) => item.product.id === pratoDoDiaProduct.id).reduce((acc, item) => acc + item.quantity, 0)}
         />
       )}
 
@@ -530,14 +578,13 @@ export default function App() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredProducts.map((product) => {
-              const qtyInCart = cartItems.find((item) => item.product.id === product.id)?.quantity || 0;
+              const qtyInCart = cartItems.filter((item) => item.product.id === product.id).reduce((acc, item) => acc + item.quantity, 0);
               return (
                 <ProductCard
                   key={product.id}
                   product={product}
                   quantityInCart={qtyInCart}
                   onAdd={handleAddToCart}
-                  onRemoveOne={handleRemoveOneFromCart}
                 />
               );
             })}
@@ -603,7 +650,7 @@ export default function App() {
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         cartItems={cartItems}
-        onAdd={handleAddToCart}
+        onAdd={handleCartAddAndIncrement}
         onRemoveOne={handleRemoveOneFromCart}
         onRemoveAll={handleRemoveAllFromCart}
         customer={customer}
@@ -615,6 +662,16 @@ export default function App() {
         onSubmitOrder={handleSubmitOrder}
         deliveryFee={deliveryCost}
         allProducts={appData?.products || []}
+      />
+
+      {/* DETAIL MODAL WITH MULTIPLE QUANTITIES & OBSERVATION OPTIONS */}
+      <ProductModal
+        isOpen={isProductModalOpen}
+        onClose={() => setIsProductModalOpen(false)}
+        product={selectedProductForModal}
+        onAdd={handleAddToCartWithDetails}
+        allProducts={appData?.products || []}
+        onAddBebidaDirectly={handleAddToCartDirectly}
       />
 
       {/* CUSTOM LUX ALERT MODAL */}

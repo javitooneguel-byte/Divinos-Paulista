@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect } from "react";
-import { X, ShoppingBag, Plus, Minus, Trash2, Send, CreditCard, Sparkles, ChefHat, AlertTriangle, Coffee } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { X, ShoppingBag, Plus, Minus, Trash2, Send, CreditCard, Sparkles, ChefHat, AlertTriangle, Coffee, ChevronLeft, ChevronRight } from "lucide-react";
 import { CartItem, Customer, Address, Product } from "../types";
 import { CheckoutForm } from "./CheckoutForm";
 import { optimizeImageUrl, imagePerfProps } from "../lib/imageOptimizer";
@@ -14,7 +14,7 @@ interface CartDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   cartItems: CartItem[];
-  onAdd: (product: any) => void;
+  onAdd: (product: any, quantity?: number, observation?: string) => void;
   onRemoveOne: (productId: string) => void;
   onRemoveAll: (productId: string) => void;
   customer: Customer;
@@ -46,6 +46,17 @@ export function CartDrawer({
   allProducts,
 }: CartDrawerProps) {
   const [showReinforceModal, setShowReinforceModal] = useState(false);
+
+  const cartBebidasScrollRef = useRef<HTMLDivElement | null>(null);
+  const cartSucosScrollRef = useRef<HTMLDivElement | null>(null);
+  const cartSobremesasScrollRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollCartList = (scrollRef: React.RefObject<HTMLDivElement | null>, direction: "left" | "right") => {
+    if (scrollRef.current) {
+      const scrollAmount = direction === "left" ? -210 : 210;
+      scrollRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
+    }
+  };
 
   useEffect(() => {
     if (isOpen && cartItems.length > 0) {
@@ -143,7 +154,7 @@ export function CartDrawer({
                     {cartItems.map((item) => {
                       const optimizedThumbUrl = optimizeImageUrl(item.product.image, { width: 100, quality: 70 });
                       return (
-                        <div key={item.product.id} className="py-3.5 flex items-start gap-3.5 group">
+                        <div key={item.id} className="py-3.5 flex items-start gap-3.5 group">
                           <img
                             src={optimizedThumbUrl}
                             alt={item.product.name}
@@ -156,17 +167,23 @@ export function CartDrawer({
                             <h4 className="font-sans text-sm font-bold text-stone-950 truncate leading-tight mb-0.5">
                               {item.product.name}
                             </h4>
-                            <span className="text-xs text-stone-500 font-sans line-clamp-1 mb-2">
+                            <span className="text-xs text-stone-500 font-sans line-clamp-1 mb-1">
                               {item.product.category}
                             </span>
+                            
+                            {item.observation && (
+                              <p className="text-xs text-amber-900 bg-amber-50/70 border border-amber-100/50 px-2 py-1 rounded-lg mt-1 mb-2 font-sans">
+                                <span className="font-extrabold">Observação:</span> {item.observation}
+                              </p>
+                            )}
                             
                             <div className="flex items-center justify-between">
                               {/* Quantity buttons */}
                               <div className="flex items-center bg-stone-50 border border-stone-200/60 rounded-lg p-0.5">
                                 <button
                                   type="button"
-                                  onClick={() => onRemoveOne(item.product.id)}
-                                  className="w-6 h-6 rounded hover:bg-white text-stone-600 flex items-center justify-center transition active:scale-90"
+                                  onClick={() => onRemoveOne(item.id)}
+                                  className="w-6 h-6 rounded hover:bg-white text-stone-600 flex items-center justify-center transition active:scale-90 cursor-pointer"
                                 >
                                   <Minus className="w-3 h-3" />
                                 </button>
@@ -175,14 +192,14 @@ export function CartDrawer({
                                 </span>
                                 <button
                                   type="button"
-                                  onClick={() => onAdd(item.product)}
-                                  className="w-6 h-6 rounded hover:bg-white text-stone-600 flex items-center justify-center transition active:scale-90"
+                                  onClick={() => onAdd(item.product, 1, item.observation)}
+                                  className="w-6 h-6 rounded hover:bg-white text-stone-600 flex items-center justify-center transition active:scale-90 cursor-pointer"
                                 >
                                   <Plus className="w-3 h-3" />
                                 </button>
                               </div>
 
-                              <span className="text-stone-900 font-sans font-extrabold text-sm">
+                              <span className="text-stone-900 font-sans font-extrabold text-sm font-mono">
                                 {formatPrice(item.product.price * item.quantity)}
                               </span>
                             </div>
@@ -191,8 +208,8 @@ export function CartDrawer({
                           {/* Remove trash */}
                           <button
                             type="button"
-                            onClick={() => onRemoveAll(item.product.id)}
-                            className="self-center p-1.5 rounded-lg text-stone-400 hover:text-brand-red hover:bg-stone-50 transition"
+                            onClick={() => onRemoveAll(item.id)}
+                            className="self-center p-1.5 rounded-lg text-stone-400 hover:text-brand-red hover:bg-stone-50 transition cursor-pointer"
                             title="Remover produto do pedido"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -203,96 +220,237 @@ export function CartDrawer({
                   </div>
                 </div>
 
-                {/* 1.5 CONTEXTUAL UPSELL RECOMMENDATIONS BASED ON USER SELECTIONS */}
+                {/* 1.5 DEDICATED HORIZONTAL RECOMMENDATIONS FOR BEBIDAS, SUCOS & SOBREMESAS */}
                 {cartItems.length > 0 && (() => {
-                  const hasJuice = cartItems.some(item => item.product.category === "Sucos Naturais");
-                  const hasDessert = cartItems.some(item => item.product.category === "Sobremesas");
+                  const listBebidas = (allProducts || []).filter(p => p.category === "Bebidas" && p.isActive !== false);
+                  const listSucos = (allProducts || []).filter(p => p.category === "Sucos Naturais" && p.isActive !== false);
+                  const listSobremesas = (allProducts || []).filter(p => p.category === "Sobremesas" && p.isActive !== false);
 
-                  // If user has not added any natural juices, show juices!
-                  if (!hasJuice) {
-                    const juices = (allProducts || []).filter(p => p.category === "Sucos Naturais" && p.isActive !== false).slice(0, 3);
-                    if (juices.length > 0) {
-                      return (
-                        <div className="bg-amber-50/60 border border-amber-200 p-4 rounded-2xl space-y-3 shadow-inner">
-                          <div className="flex items-center gap-2">
-                            <span className="text-base">🍹</span>
-                            <h4 className="text-xs font-black uppercase text-amber-905 tracking-wider">
-                              Que tal um Suco natural preparado na hora para acompanhar o almoço?
-                            </h4>
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                            {juices.map(juice => (
-                              <div key={juice.id} className="bg-white border border-amber-100 rounded-xl p-2.5 flex sm:flex-col items-center justify-between sm:justify-center gap-2 text-center shadow-sm hover:border-brand-yellow/65 transition-all">
-                                <div className="flex sm:flex-col items-center gap-2 text-left sm:text-center w-3/4 sm:w-auto">
-                                  <img 
-                                    src={optimizeImageUrl(juice.image, { width: 100, quality: 70 })} 
-                                    alt={juice.name} 
-                                    className="w-10 h-10 object-cover rounded-lg shadow-sm block"
-                                    loading="lazy"
-                                  />
-                                  <div className="min-w-0">
-                                    <p className="font-bold text-stone-900 text-[11px] leading-tight line-clamp-2">{juice.name}</p>
-                                    <p className="text-[10px] text-amber-700 font-extrabold mt-0.5">R$ {juice.price.toFixed(2).replace(".", ",")}</p>
+                  if (listBebidas.length === 0 && listSucos.length === 0 && listSobremesas.length === 0) return null;
+
+                  return (
+                    <div className="space-y-4 pt-4 pb-2 border-t border-b border-stone-100">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm">🍰</span>
+                        <h4 className="text-[11px] font-black uppercase text-stone-700 tracking-wider">
+                          Deseja adicionar bebida ou sobremesa?
+                        </h4>
+                      </div>
+
+                      {/* Section 1: Bebidas */}
+                      {listBebidas.length > 0 && (
+                        <div className="space-y-2">
+                          <h5 className="text-[10px] uppercase font-bold text-stone-400 tracking-wider flex items-center gap-1.5 px-0.5">
+                            🥤 Refrigerantes & Cervejas <span className="text-[9px] text-stone-300 lowercase font-normal">(deslize →)</span>
+                          </h5>
+                          <div className="relative group/arrows">
+                            {/* Left Arrow Button */}
+                            <button
+                              type="button"
+                              onClick={() => scrollCartList(cartBebidasScrollRef, "left")}
+                              className="absolute left-1 top-1/2 -translate-y-1/2 z-10 bg-white/95 hover:bg-white text-stone-700 hover:text-black border border-stone-200/80 shadow-md p-1.5 rounded-full transition-all hover:scale-105 active:scale-95 cursor-pointer flex items-center justify-center opacity-85 hover:opacity-100"
+                              title="Anterior"
+                            >
+                              <ChevronLeft className="w-3.5 h-3.5 stroke-[2.5]" />
+                            </button>
+
+                            <div 
+                              ref={cartBebidasScrollRef}
+                              className="flex gap-3 overflow-x-auto pb-3 scrollbar-thin scrollbar-thumb-stone-300 scrollbar-track-stone-100/60 pr-4 touch-pan-x"
+                            >
+                              {listBebidas.map((drink) => {
+                                const thumbUrl = optimizeImageUrl(drink.image, { width: 80, quality: 70 });
+                                return (
+                                  <div
+                                    key={drink.id}
+                                    className="bg-stone-50 border border-stone-200/80 rounded-2xl p-2.5 flex items-center gap-2.5 shrink-0 min-w-[195px] w-[210px] shadow-sm hover:border-stone-300 transition-all font-sans"
+                                  >
+                                    <img
+                                      src={thumbUrl}
+                                      alt={drink.name}
+                                      className="w-10 h-10 object-cover rounded-lg shadow-sm border border-stone-150 shrink-0"
+                                      loading="lazy"
+                                    />
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-[11px] font-bold text-stone-900 truncate leading-tight">
+                                        {drink.name}
+                                      </p>
+                                      <p className="text-[10px] text-emerald-700 font-extrabold mt-0.5">
+                                        {new Intl.NumberFormat("pt-BR", {
+                                          style: "currency",
+                                          currency: "BRL"
+                                        }).format(drink.price)}
+                                      </p>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => onAdd(drink, 1, "")}
+                                      className="bg-brand-yellow hover:bg-amber-400 text-stone-950 p-1.5 rounded-lg transition active:scale-95 cursor-pointer shrink-0"
+                                      title="Adicionar ao carrinho"
+                                    >
+                                      <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                                    </button>
                                   </div>
-                                </div>
-                                <button 
-                                  type="button"
-                                  onClick={() => onAdd(juice)}
-                                  className="bg-brand-yellow hover:bg-amber-400 text-stone-950 font-black text-[10px] px-2.5 py-1.5 rounded-lg transition uppercase tracking-wide flex items-center gap-1 active:scale-95 cursor-pointer shrink-0"
-                                >
-                                  <Plus className="w-3 h-3 stroke-[3]" /> Adicionar
-                                </button>
-                              </div>
-                            ))}
+                                );
+                              })}
+                            </div>
+
+                            {/* Right Arrow Button */}
+                            <button
+                              type="button"
+                              onClick={() => scrollCartList(cartBebidasScrollRef, "right")}
+                              className="absolute right-1 top-1/2 -translate-y-1/2 z-10 bg-white/95 hover:bg-white text-stone-700 hover:text-black border border-stone-200/80 shadow-md p-1.5 rounded-full transition-all hover:scale-105 active:scale-95 cursor-pointer flex items-center justify-center opacity-85 hover:opacity-100"
+                              title="Próximo"
+                            >
+                              <ChevronRight className="w-3.5 h-3.5 stroke-[2.5]" />
+                            </button>
                           </div>
                         </div>
-                      );
-                    }
-                  }
+                      )}
 
-                  // If user has added a juice, but hasn't added any dessert!
-                  if (hasJuice && !hasDessert) {
-                    const desserts = (allProducts || []).filter(p => p.category === "Sobremesas" && p.isActive !== false).slice(0, 3);
-                    if (desserts.length > 0) {
-                      return (
-                        <div className="bg-rose-50/60 border border-rose-200 p-4 rounded-2xl space-y-3 shadow-inner">
-                          <div className="flex items-center gap-2">
-                            <span className="text-base">🍰</span>
-                            <h4 className="text-xs font-black uppercase text-rose-950 tracking-wider">
-                              E para fechar com chave de ouro... Que tal uma sobremesa gelada?
-                            </h4>
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                            {desserts.map(dessert => (
-                              <div key={dessert.id} className="bg-white border border-rose-100 rounded-xl p-2.5 flex sm:flex-col items-center justify-between sm:justify-center gap-2 text-center shadow-sm hover:border-brand-red/40 transition-all">
-                                <div className="flex sm:flex-col items-center gap-2 text-left sm:text-center w-3/4 sm:w-auto">
-                                  <img 
-                                    src={optimizeImageUrl(dessert.image, { width: 100, quality: 70 })} 
-                                    alt={dessert.name} 
-                                    className="w-10 h-10 object-cover rounded-lg shadow-sm block"
-                                    loading="lazy"
-                                  />
-                                  <div className="min-w-0">
-                                    <p className="font-bold text-stone-900 text-[11px] leading-tight line-clamp-2">{dessert.name}</p>
-                                    <p className="text-[10px] text-rose-700 font-extrabold mt-0.5">R$ {dessert.price.toFixed(2).replace(".", ",")}</p>
+                      {/* Section 2: Sucos Naturais */}
+                      {listSucos.length > 0 && (
+                        <div className="space-y-2">
+                          <h5 className="text-[10px] uppercase font-bold text-stone-400 tracking-wider flex items-center gap-1.5 px-0.5">
+                            🍹 Sucos Naturais Gelados <span className="text-[9px] text-stone-300 lowercase font-normal">(deslize →)</span>
+                          </h5>
+                          <div className="relative group/arrows">
+                            {/* Left Arrow Button */}
+                            <button
+                              type="button"
+                              onClick={() => scrollCartList(cartSucosScrollRef, "left")}
+                              className="absolute left-1 top-1/2 -translate-y-1/2 z-10 bg-white/95 hover:bg-white text-stone-700 hover:text-black border border-stone-200/80 shadow-md p-1.5 rounded-full transition-all hover:scale-105 active:scale-95 cursor-pointer flex items-center justify-center opacity-85 hover:opacity-100"
+                              title="Anterior"
+                            >
+                              <ChevronLeft className="w-3.5 h-3.5 stroke-[2.5]" />
+                            </button>
+
+                            <div 
+                              ref={cartSucosScrollRef}
+                              className="flex gap-3 overflow-x-auto pb-3 scrollbar-thin scrollbar-thumb-stone-300 scrollbar-track-stone-100/60 pr-4 touch-pan-x"
+                            >
+                              {listSucos.map((drink) => {
+                                const thumbUrl = optimizeImageUrl(drink.image, { width: 80, quality: 70 });
+                                return (
+                                  <div
+                                    key={drink.id}
+                                    className="bg-stone-50 border border-stone-200/85 rounded-2xl p-2.5 flex items-center gap-2.5 shrink-0 min-w-[195px] w-[210px] shadow-sm hover:border-stone-300 transition-all font-sans"
+                                  >
+                                    <img
+                                      src={thumbUrl}
+                                      alt={drink.name}
+                                      className="w-10 h-10 object-cover rounded-lg shadow-sm border border-stone-150 shrink-0"
+                                      loading="lazy"
+                                    />
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-[11px] font-bold text-stone-900 truncate leading-tight">
+                                        {drink.name}
+                                      </p>
+                                      <p className="text-[10px] text-emerald-700 font-extrabold mt-0.5">
+                                        {new Intl.NumberFormat("pt-BR", {
+                                          style: "currency",
+                                          currency: "BRL"
+                                        }).format(drink.price)}
+                                      </p>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => onAdd(drink, 1, "")}
+                                      className="bg-brand-yellow hover:bg-amber-400 text-stone-950 p-1.5 rounded-lg transition active:scale-95 cursor-pointer shrink-0"
+                                      title="Adicionar ao carrinho"
+                                    >
+                                      <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                                    </button>
                                   </div>
-                                </div>
-                                <button 
-                                  type="button"
-                                  onClick={() => onAdd(dessert)}
-                                  className="bg-brand-red hover:bg-brand-red-dark text-white font-black text-[10px] px-2.5 py-1.5 rounded-lg transition uppercase tracking-wide flex items-center gap-1 active:scale-95 cursor-pointer shrink-0"
-                                >
-                                  <Plus className="w-3 h-3 stroke-[3]" /> Adicionar
-                                </button>
-                              </div>
-                            ))}
+                                );
+                              })}
+                            </div>
+
+                            {/* Right Arrow Button */}
+                            <button
+                              type="button"
+                              onClick={() => scrollCartList(cartSucosScrollRef, "right")}
+                              className="absolute right-1 top-1/2 -translate-y-1/2 z-10 bg-white/95 hover:bg-white text-stone-700 hover:text-black border border-stone-200/80 shadow-md p-1.5 rounded-full transition-all hover:scale-105 active:scale-95 cursor-pointer flex items-center justify-center opacity-85 hover:opacity-100"
+                              title="Próximo"
+                            >
+                              <ChevronRight className="w-3.5 h-3.5 stroke-[2.5]" />
+                            </button>
                           </div>
                         </div>
-                      );
-                    }
-                  }
+                      )}
 
-                  return null;
+                      {/* Section 3: Sobremesas */}
+                      {listSobremesas.length > 0 && (
+                        <div className="space-y-2 pt-2">
+                          <h5 className="text-[10px] uppercase font-bold text-stone-400 tracking-wider flex items-center gap-1.5 px-0.5">
+                            🍰 Sobremesas Deliciosas <span className="text-[9px] text-stone-300 lowercase font-normal">(deslize →)</span>
+                          </h5>
+                          <div className="relative group/arrows">
+                            {/* Left Arrow Button */}
+                            <button
+                              type="button"
+                              onClick={() => scrollCartList(cartSobremesasScrollRef, "left")}
+                              className="absolute left-1 top-1/2 -translate-y-1/2 z-10 bg-white/95 hover:bg-white text-stone-700 hover:text-black border border-stone-200/80 shadow-md p-1.5 rounded-full transition-all hover:scale-105 active:scale-95 cursor-pointer flex items-center justify-center opacity-85 hover:opacity-100"
+                              title="Anterior"
+                            >
+                              <ChevronLeft className="w-3.5 h-3.5 stroke-[2.5]" />
+                            </button>
+
+                            <div 
+                              ref={cartSobremesasScrollRef}
+                              className="flex gap-3 overflow-x-auto pb-3 scrollbar-thin scrollbar-thumb-stone-300 scrollbar-track-stone-100/60 pr-4 touch-pan-x"
+                            >
+                              {listSobremesas.map((dessert) => {
+                                const thumbUrl = optimizeImageUrl(dessert.image, { width: 80, quality: 70 });
+                                return (
+                                  <div
+                                    key={dessert.id}
+                                    className="bg-stone-50 border border-stone-200/85 rounded-2xl p-2.5 flex items-center gap-2.5 shrink-0 min-w-[195px] w-[210px] shadow-sm hover:border-stone-300 transition-all font-sans"
+                                  >
+                                    <img
+                                      src={thumbUrl}
+                                      alt={dessert.name}
+                                      className="w-10 h-10 object-cover rounded-lg shadow-sm border border-stone-150 shrink-0"
+                                      loading="lazy"
+                                    />
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-[11px] font-bold text-stone-900 truncate leading-tight">
+                                        {dessert.name}
+                                      </p>
+                                      <p className="text-[10px] text-emerald-700 font-extrabold mt-0.5">
+                                        {new Intl.NumberFormat("pt-BR", {
+                                          style: "currency",
+                                          currency: "BRL"
+                                        }).format(dessert.price)}
+                                      </p>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => onAdd(dessert, 1, "")}
+                                      className="bg-brand-yellow hover:bg-amber-400 text-stone-950 p-1.5 rounded-lg transition active:scale-95 cursor-pointer shrink-0"
+                                      title="Adicionar ao carrinho"
+                                    >
+                                      <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            {/* Right Arrow Button */}
+                            <button
+                              type="button"
+                              onClick={() => scrollCartList(cartSobremesasScrollRef, "right")}
+                              className="absolute right-1 top-1/2 -translate-y-1/2 z-10 bg-white/95 hover:bg-white text-stone-700 hover:text-black border border-stone-200/80 shadow-md p-1.5 rounded-full transition-all hover:scale-105 active:scale-95 cursor-pointer flex items-center justify-center opacity-85 hover:opacity-100"
+                              title="Próximo"
+                            >
+                              <ChevronRight className="w-3.5 h-3.5 stroke-[2.5]" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
                 })()}
 
                 {/* 2. INSTANT ORDER BILL DETAILS */}
