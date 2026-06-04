@@ -30,6 +30,7 @@ import { ProductCard } from "./components/ProductCard";
 import { CartDrawer } from "./components/CartDrawer";
 import { AdminPanel } from "./components/AdminPanel";
 import { ProductModal } from "./components/ProductModal";
+import { RedirectionPage } from "./components/RedirectionPage";
 import { loadAppData } from "./lib/db";
 import { Product, CartItem, Customer, Address } from "./types";
 import { 
@@ -261,6 +262,16 @@ export default function App() {
 
         </div>
       </div>
+    );
+  }
+
+  // Intercept Redirection Page Route
+  if (currentPath === "/redirecionamento" || window.location.hash === "#/redirecionamento") {
+    return (
+      <RedirectionPage 
+        logo={appData?.restaurant?.logo} 
+        companyName={appData?.restaurant?.companyName} 
+      />
     );
   }
 
@@ -497,8 +508,15 @@ export default function App() {
       num_items: totalItemsCount
     });
 
-    // Open WhatsApp in a safe manner
-    window.open(compiledUrl, "_blank");
+    // Save pending WhatsApp redirect URL to sessionStorage
+    sessionStorage.setItem("pending_whatsapp_url", compiledUrl);
+
+    // Clear existing cart items state because order is successfully processed
+    setCartItems([]);
+
+    // Update Client Router state and browser address bar dynamically
+    history.pushState(null, "", "/redirecionamento");
+    setCurrentPath("/redirecionamento");
   };
 
   return (
