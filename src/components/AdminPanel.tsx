@@ -907,6 +907,35 @@ export function AdminPanel() {
     );
   }
 
+  // Calculate groupedProducts for the products tab securely in component body
+  const groupedProducts = (() => {
+    const groups: { categoryId: string; categoryName: string; isActive: boolean; products: Product[] }[] = [];
+    if (!data || !data.categories || !data.products) return groups;
+    
+    const standardCategoryNames = new Set(data.categories.map(c => c.name));
+    
+    data.categories.forEach(cat => {
+      const catProducts = data.products.filter(p => p.category === cat.name);
+      groups.push({
+        categoryId: cat.id,
+        categoryName: cat.name,
+        isActive: cat.isActive !== false,
+        products: catProducts
+      });
+    });
+    
+    const otherProducts = data.products.filter(p => !p.category || !standardCategoryNames.has(p.category));
+    if (otherProducts.length > 0) {
+      groups.push({
+        categoryId: "uncategorized",
+        categoryName: "Outros / Sem Categoria",
+        isActive: true,
+        products: otherProducts
+      });
+    }
+    return groups;
+  })();
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-stone-900 border-t-8 border-brand-yellow flex items-center justify-center p-4 font-sans animate-fade-in">
@@ -1671,35 +1700,7 @@ export function AdminPanel() {
           )}
 
           {/* ABA 4: PRODUTOS */}
-          {activeTab === "products" && (() => {
-            // Calculate groupedProducts
-            const groupedProducts = (() => {
-              const groups: { categoryId: string; categoryName: string; isActive: boolean; products: Product[] }[] = [];
-              const standardCategoryNames = new Set(data.categories.map(c => c.name));
-              
-              data.categories.forEach(cat => {
-                const catProducts = data.products.filter(p => p.category === cat.name);
-                groups.push({
-                  categoryId: cat.id,
-                  categoryName: cat.name,
-                  isActive: cat.isActive !== false,
-                  products: catProducts
-                });
-              });
-              
-              const otherProducts = data.products.filter(p => !p.category || !standardCategoryNames.has(p.category));
-              if (otherProducts.length > 0) {
-                groups.push({
-                  categoryId: "uncategorized",
-                  categoryName: "Outros / Sem Categoria",
-                  isActive: true,
-                  products: otherProducts
-                });
-              }
-              return groups;
-            })();
-
-            return (
+          {activeTab === "products" && (
               <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
@@ -2017,8 +2018,8 @@ export function AdminPanel() {
                   </div>
                 )}
               </div>
-            );
-          })()}
+            )
+          }
 
           {/* ABA 5: ENTREGA */}
           {activeTab === "delivery" && (

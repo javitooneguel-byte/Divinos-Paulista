@@ -89,11 +89,6 @@ export default function App() {
     };
   }, []);
 
-  // Intercept Admin Route
-  if (currentPath === "/admin" || currentPath.startsWith("/admin") || window.location.hash === "#/admin") {
-    return <AdminPanel />;
-  }
-
   // Load App Data from Storage (configured restaurant parameters and catalog)
   // Retrieve cached app data from localStorage if available, so it loads instantly in under 10ms!
   const [appData, setAppData] = useState<any>(() => {
@@ -240,6 +235,11 @@ export default function App() {
 
   // Menu list reference for smooth scrolling
   const menuCatalogRef = useRef<HTMLDivElement>(null);
+
+  // Intercept Admin Route
+  if (currentPath === "/admin" || currentPath.startsWith("/admin") || window.location.hash === "#/admin") {
+    return <AdminPanel />;
+  }
 
   // Show nice loader screen and exit early if loading or appData is not ready yet
   if (isLoadingSupabase || !appData) {
