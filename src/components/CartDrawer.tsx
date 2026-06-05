@@ -500,28 +500,68 @@ export function CartDrawer({
                 })()}
 
                 {/* 2. INSTANT ORDER BILL DETAILS - ONLY IN STEP 1 */}
-                {cartStage === "items" && (
-                  <div className="bg-white p-5 rounded-2xl border border-stone-100 shadow-sm space-y-3 font-sans animate-slide-in">
-                    <div className="flex justify-between text-xs font-bold text-stone-600 uppercase tracking-wider border-b border-stone-100 pb-2">
-                      <span>Resumo da Conta</span>
-                    </div>
-                    
-                    <div className="flex justify-between text-sm text-stone-600">
-                      <span>Subtotal</span>
-                      <span className="font-semibold text-stone-900">{formatPrice(subtotal)}</span>
-                    </div>
+                {cartStage === "items" && (() => {
+                  const isPlateForPromo = (categoryName: string) => {
+                    const cat = (categoryName || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                    if (cat.includes("bebida") || cat.includes("suco") || cat.includes("sobremesa")) {
+                      return false;
+                    }
+                    return true;
+                  };
 
-                    <div className="flex justify-between text-sm text-stone-600">
-                      <span>Taxa de Entrega</span>
-                      <span className="font-semibold text-stone-900">{formatPrice(deliveryFee)}</span>
-                    </div>
+                  const platesCount = cartItems.reduce((acc, item) => {
+                    if (isPlateForPromo(item.product.category)) {
+                      return acc + item.quantity;
+                    }
+                    return acc;
+                  }, 0);
 
-                    <div className="flex justify-between items-baseline pt-3.5 border-t border-stone-200/60 font-sans">
-                      <span className="text-sm font-bold text-stone-900 uppercase tracking-wide">Total Geral</span>
-                      <span className="text-xl font-sans font-black text-brand-red">{formatPrice(total)}</span>
+                  const isDeliveryFree = platesCount >= 2;
+
+                  return (
+                    <div className="bg-white p-5 rounded-2xl border border-stone-100 shadow-sm space-y-3 font-sans animate-slide-in">
+                      {/* Promo Alert in Cart */}
+                      <div className="text-center p-2.5 rounded-xl border text-xs font-semibold">
+                        {platesCount === 0 ? (
+                          <div className="text-stone-500 bg-stone-50 border-stone-200/50 p-1 rounded-lg">
+                            Dica: Compre 2 pratos e a <b>entrega é grátis!</b>
+                          </div>
+                        ) : platesCount < 2 ? (
+                          <div className="text-amber-850 bg-amber-500/5 border-amber-200/40 p-1 rounded-lg animate-pulse">
+                            Falta apenas <b>1 prato</b> para ganhar <b>ENTREGA GRÁTIS!</b>
+                          </div>
+                        ) : (
+                          <div className="text-emerald-800 bg-emerald-500/5 border-emerald-200/40 p-1 rounded-lg">
+                            🎉 Parabéns! Você ganhou <b>ENTREGA GRÁTIS!</b>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex justify-between text-xs font-bold text-stone-600 uppercase tracking-wider border-b border-stone-100 pb-2">
+                        <span>Resumo da Conta</span>
+                      </div>
+                      
+                      <div className="flex justify-between text-sm text-stone-600">
+                        <span>Subtotal</span>
+                        <span className="font-semibold text-stone-900">{formatPrice(subtotal)}</span>
+                      </div>
+
+                      <div className="flex justify-between text-sm text-stone-600 items-center">
+                        <span>Taxa de Entrega</span>
+                        {isDeliveryFree ? (
+                          <span className="font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md text-xs">GRÁTIS</span>
+                        ) : (
+                          <span className="font-semibold text-stone-900">{formatPrice(deliveryFee)}</span>
+                        )}
+                      </div>
+
+                      <div className="flex justify-between items-baseline pt-3.5 border-t border-stone-200/60 font-sans">
+                        <span className="text-sm font-bold text-stone-900 uppercase tracking-wide">Total Geral</span>
+                        <span className="text-xl font-sans font-black text-brand-red">{formatPrice(total)}</span>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* STAGE 2: ADDRESS & CONTACT DETAILS ONLY - NO HIDDEN SCROLL INTERFERENCE */}
                 {cartStage === "address" && (

@@ -21,7 +21,8 @@ import {
   X,
   Plus,
   ChefHat,
-  UtensilsCrossed
+  UtensilsCrossed,
+  Truck
 } from "lucide-react";
 import { Header } from "./components/Header";
 import { PratoDoDia } from "./components/PratoDoDia";
@@ -441,8 +442,27 @@ export default function App() {
 
   const totalItemsCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
   const cartSubtotal = cartItems.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
+  
+  // A helper to determine if a product counts as a main dish/plate for free delivery promo
+  const isPlateForPromo = (categoryName: string) => {
+    const cat = (categoryName || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (cat.includes("bebida") || cat.includes("suco") || cat.includes("sobremesa")) {
+      return false;
+    }
+    return true;
+  };
+
+  const platesCount = cartItems.reduce((acc, item) => {
+    if (isPlateForPromo(item.product.category)) {
+      return acc + item.quantity;
+    }
+    return acc;
+  }, 0);
+
+  const isDeliveryFree = platesCount >= 2;
   const deliveryCost = appData.restaurant.deliveryFee;
-  const cartTotal = cartSubtotal + deliveryCost;
+  const actualDeliveryCost = isDeliveryFree ? 0 : deliveryCost;
+  const cartTotal = cartSubtotal + actualDeliveryCost;
 
   // Formatting utility
   const formatPriceBrl = (value: number) => {
@@ -552,7 +572,11 @@ export default function App() {
       messageText += `\n`;
     });
     messageText += `Subtotal: ${formatPriceBrl(cartSubtotal)}\n`;
-    messageText += `Taxa de entrega: ${formatPriceBrl(deliveryCost)}\n`;
+    if (isDeliveryFree) {
+      messageText += `Taxa de entrega: GRÁTIS (Promoção 2+ Pratos!)\n`;
+    } else {
+      messageText += `Taxa de entrega: ${formatPriceBrl(actualDeliveryCost)}\n`;
+    }
     messageText += `Total: ${formatPriceBrl(cartTotal)}\n\n`;
 
     messageText += `Pagamento:\n`;
@@ -589,6 +613,41 @@ export default function App() {
       
       {/* Visual Header Banner */}
       <Header onScrollToMenu={handleScrollToMenu} restaurant={appData.restaurant} />
+
+      {/* PROMOTIONAL PILL / ALERT */}
+      <div className="max-w-5xl mx-auto w-full px-4 mt-6">
+        <div className="bg-gradient-to-r from-stone-50 to-amber-50/50 border border-brand-yellow/30 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="bg-brand-red text-white p-2.5 rounded-xl shadow-md shrink-0">
+              <Truck className="w-5 h-5 text-brand-yellow" />
+            </div>
+            <div>
+              <h4 className="text-sm font-black text-stone-900 tracking-tight flex items-center gap-1.5">
+                🎉 PROMOÇÃO: Entrega Grátis!
+              </h4>
+              <p className="text-xs text-stone-605 font-medium mt-0.5">
+                Na compra de <span className="text-brand-red font-bold">2 ou mais pratos</span> a entrega é grátis! <span className="text-[10px] text-stone-500 block sm:inline sm:ml-1">(Não conta sobremesa nem bebida)</span>
+              </p>
+            </div>
+          </div>
+          
+          <div className="shrink-0 flex items-center gap-2 w-full sm:w-auto justify-end">
+            {platesCount === 0 ? (
+              <span className="text-[10px] font-extrabold bg-stone-100 text-stone-500 border border-stone-200 px-3 py-1.5 rounded-xl uppercase tracking-wider block text-center w-full sm:w-auto">
+                Nenhum prato no carrinho
+              </span>
+            ) : platesCount < 2 ? (
+              <span className="text-[10px] font-extrabold bg-amber-500/10 text-amber-800 border border-amber-300/40 px-3 py-1.5 rounded-xl uppercase tracking-wider block text-center w-full sm:w-auto animate-pulse">
+                Falta {2 - platesCount} {2 - platesCount === 1 ? 'prato' : 'pratos'} para Frete Grátis!
+              </span>
+            ) : (
+              <span className="text-[10px] font-extrabold bg-emerald-500/10 text-emerald-800 border border-emerald-300/40 px-3 py-1.5 rounded-xl uppercase tracking-wider flex items-center justify-center gap-1 w-full sm:w-auto">
+                ⭐ FRETE GRÁTIS ATIVADO!
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Featured Dish: Prato do Dia (Only if activated by admin) */}
       {appData.pratoDoDia.isActive && (
@@ -743,7 +802,7 @@ export default function App() {
         observation={observation}
         onUpdateObservation={setObservation}
         onSubmitOrder={handleSubmitOrder}
-        deliveryFee={deliveryCost}
+        deliveryFee={actualDeliveryCost}
         allProducts={appData?.products || []}
       />
 
