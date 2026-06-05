@@ -52,9 +52,37 @@ export default function App() {
   useEffect(() => {
     const handleLocationChange = () => {
       setCurrentPath(window.location.pathname);
+      
+      const hash = window.location.hash;
+      if (hash === "#/endereco") {
+        setIsCartOpen(true);
+        
+        // Restore cart from backup if we backed into the checkout stage!
+        const backupStr = sessionStorage.getItem("backup_cart_items");
+        if (backupStr) {
+          try {
+            const parsed = JSON.parse(backupStr);
+            if (parsed && parsed.length > 0) {
+              setCartItems(parsed);
+              sessionStorage.removeItem("backup_cart_items"); // Clear backup so it doesn't double-restore
+            }
+          } catch (e) {
+            console.warn("Could not restore backup:", e);
+          }
+        }
+      } else if (hash === "#/carrinho") {
+        setIsCartOpen(true);
+      } else {
+        setIsCartOpen(false);
+      }
     };
+
     window.addEventListener("popstate", handleLocationChange);
     window.addEventListener("hashchange", handleLocationChange);
+    
+    // Initialize state on mount
+    handleLocationChange();
+
     return () => {
       window.removeEventListener("popstate", handleLocationChange);
       window.removeEventListener("hashchange", handleLocationChange);
@@ -436,26 +464,58 @@ export default function App() {
   // Submit and form validations
   const handleSubmitOrder = () => {
     if (cartItems.length === 0) {
+      window.location.hash = "#/carrinho";
       setAlertMessage("Adicione pelo menos um item ao pedido.");
       return;
     }
+
+    const scrollToAndFocus = (id: string, message: string) => {
+      setAlertMessage(message);
+      setTimeout(() => {
+        const input = document.getElementById(id) as HTMLInputElement | null;
+        if (input) {
+          input.focus();
+          input.scrollIntoView({ behavior: "smooth", block: "center" });
+          
+          // Flash error aesthetic feedback
+          input.classList.add("!border-brand-red", "ring-2", "ring-red-100", "bg-red-50/10");
+          setTimeout(() => {
+            input.classList.remove("!border-brand-red", "ring-2", "ring-red-100", "bg-red-50/10");
+          }, 3500);
+        }
+      }, 350);
+    };
+
     if (!customer.name.trim()) {
-      setAlertMessage("Preencha seu nome para continuar.");
+      scrollToAndFocus("customer-name", "⚠️ Por favor, informe seu Nome Completo para prosseguir.");
       return;
     }
     if (!customer.phone.trim()) {
-      setAlertMessage("Preencha seu telefone para continuar.");
+      scrollToAndFocus("customer-phone", "⚠️ Por favor, informe seu Telefone / WhatsApp de contato.");
       return;
     }
-    if (
-      !address.cep.trim() ||
-      !address.street.trim() ||
-      !address.number.trim() ||
-      !address.neighborhood.trim() ||
-      !address.city.trim() ||
-      !address.state.trim()
-    ) {
-      setAlertMessage("Preencha o endereço de entrega para continuar.");
+    if (!address.cep.trim() || address.cep.replace(/\D/g, "").length !== 8) {
+      scrollToAndFocus("delivery-cep", "⚠️ Por favor, informe um CEP válido com 8 dígitos.");
+      return;
+    }
+    if (!address.street.trim()) {
+      scrollToAndFocus("delivery-street", "⚠️ Por favor, informe a Rua / Logradouro para entrega.");
+      return;
+    }
+    if (!address.number.trim()) {
+      scrollToAndFocus("delivery-number", "⚠️ Informe o número do endereço.");
+      return;
+    }
+    if (!address.neighborhood.trim()) {
+      scrollToAndFocus("delivery-neighborhood", "⚠️ Por favor, informe o Bairro de destino.");
+      return;
+    }
+    if (!address.city.trim()) {
+      scrollToAndFocus("delivery-city", "⚠️ Por favor, informe a Cidade para entrega.");
+      return;
+    }
+    if (!address.state.trim()) {
+      scrollToAndFocus("delivery-state", "⚠️ Por favor, informe a UF do Estado.");
       return;
     }
 
@@ -510,6 +570,11 @@ export default function App() {
 
     // Save pending WhatsApp redirect URL to sessionStorage
     sessionStorage.setItem("pending_whatsapp_url", compiledUrl);
+
+    // Save cart items in backup before clearing (for smooth mobile back-button recovery)
+    try {
+      sessionStorage.setItem("backup_cart_items", JSON.stringify(cartItems));
+    } catch (e) {}
 
     // Clear existing cart items state because order is successfully processed
     setCartItems([]);
@@ -636,8 +701,8 @@ export default function App() {
           </div>
 
           <button
-            onClick={() => setIsCartOpen(true)}
-            className="bg-brand-red hover:bg-brand-red-dark text-white font-bold py-3 px-5 rounded-xl text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-md transform active:scale-95"
+            onClick={() => window.location.hash = "#/carrinho"}
+            className="bg-brand-red hover:bg-brand-red-dark text-white font-bold py-3 px-5 rounded-xl text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-md transform active:scale-95 cursor-pointer"
           >
             <ShoppingBag className="w-4 h-4" />
             Ver Carrinho
@@ -647,7 +712,7 @@ export default function App() {
 
       {/* DESKTOP FLOAT BUTTON TO OPEN CART */}
       <button
-        onClick={() => setIsCartOpen(true)}
+        onClick={() => window.location.hash = "#/carrinho"}
         className="hidden md:flex fixed right-6 bottom-6 bg-brand-red hover:bg-brand-red-dark text-white p-4 rounded-full shadow-2xl transition duration-150 items-center justify-center gap-2 hover:scale-105 active:scale-95 z-40 cursor-pointer group"
       >
         <div className="relative">
@@ -666,7 +731,7 @@ export default function App() {
       {/* FULL SLIDE DRAWER COMPONENT */}
       <CartDrawer
         isOpen={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
+        onClose={() => window.location.hash = ""}
         cartItems={cartItems}
         onAdd={handleCartAddAndIncrement}
         onRemoveOne={handleRemoveOneFromCart}

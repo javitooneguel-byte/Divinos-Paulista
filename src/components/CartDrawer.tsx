@@ -68,6 +68,25 @@ export function CartDrawer({
     }
   }, [isOpen, cartItems.length]);
 
+  const [cartStage, setCartStage] = useState<"items" | "address">("items");
+
+  useEffect(() => {
+    if (isOpen) {
+      const handleHashTransition = () => {
+        if (window.location.hash === "#/endereco") {
+          setCartStage("address");
+        } else {
+          setCartStage("items");
+        }
+      };
+      handleHashTransition();
+      window.addEventListener("hashchange", handleHashTransition);
+      return () => {
+        window.removeEventListener("hashchange", handleHashTransition);
+      };
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const subtotal = cartItems.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
@@ -93,12 +112,21 @@ export function CartDrawer({
     }
   };
 
+  const handleClose = () => {
+    window.location.hash = "";
+    onClose();
+  };
+
+  const handleBackStep = () => {
+    window.history.back();
+  };
+
   return (
     <div className="fixed inset-0 z-50 overflow-hidden font-sans">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm transition-opacity duration-300"
-        onClick={onClose}
+        onClick={handleClose}
       />
 
       {/* Drawer Panel Container */}
@@ -106,20 +134,36 @@ export function CartDrawer({
         <div className="w-screen max-w-2xl bg-stone-50 h-full flex flex-col shadow-2xl relative">
           
           {/* Header */}
-          <div className="bg-brand-slate text-white px-5 py-4 flex items-center justify-between border-b border-stone-800">
-            <div className="flex items-center gap-2.5">
-              <ShoppingBag className="w-5 h-5 text-brand-yellow animate-pulse" />
-              <h2 id="cart-drawer-title" className="font-serif text-lg font-bold">Meu Pedido Divinos</h2>
-              <span className="bg-brand-red text-white text-xs font-bold px-2 py-0.5 rounded-full">
+          <div className="bg-brand-slate text-white px-5 py-4 flex items-center justify-between border-b border-stone-800 font-sans">
+            <div className="flex items-center gap-2">
+              {cartStage === "address" ? (
+                <button
+                  onClick={handleBackStep}
+                  className="mr-1.5 p-1 px-2 hover:bg-stone-800 rounded-lg text-brand-yellow font-extrabold transition flex items-center gap-1 cursor-pointer text-xs uppercase"
+                  title="Voltar para o carrinho"
+                >
+                  <ChevronLeft className="w-5 h-5 shrink-0" />
+                  Voltar
+                </button>
+              ) : (
+                <ShoppingBag className="w-5 h-5 text-brand-yellow animate-pulse" />
+              )}
+              
+              <h2 id="cart-drawer-title" className="font-serif text-sm sm:text-base font-black tracking-tight">
+                {cartStage === "address" ? "Dados de Entrega" : "Meu Pedido Divinos"}
+              </h2>
+              
+              <span className="bg-brand-red text-white text-[10px] font-black px-1.5 py-0.5 rounded-full ml-1">
                 {cartItems.reduce((acc, i) => acc + i.quantity, 0)} Itens
               </span>
             </div>
+            
             <button
-              onClick={onClose}
-              className="p-1 text-stone-400 hover:text-white hover:bg-stone-800 rounded-lg transition"
+              onClick={handleClose}
+              className="p-1 px-2 text-stone-400 hover:text-white hover:bg-stone-800 rounded-lg transition text-xs font-black uppercase border border-stone-800 cursor-pointer"
               aria-label="Fechar carrinho"
             >
-              <X className="w-6 h-6" />
+              Fechar
             </button>
           </div>
 
@@ -135,8 +179,8 @@ export function CartDrawer({
                   Retorne ao cardápio e adicione nossas deliciosas opções brasileiras para começar.
                 </p>
                 <button
-                  onClick={onClose}
-                  className="bg-brand-red hover:bg-brand-red-dark text-white font-bold py-2.5 px-6 rounded-xl transition text-xs uppercase tracking-wider"
+                  onClick={handleClose}
+                  className="bg-brand-red hover:bg-brand-red-dark text-white font-bold py-2.5 px-6 rounded-xl transition text-xs uppercase tracking-wider cursor-pointer font-sans"
                 >
                   Continuar Escolhendo
                 </button>
@@ -144,13 +188,14 @@ export function CartDrawer({
             ) : (
               <div className="space-y-6">
                 
-                {/* 1. LIST OF SELECTED DISHES */}
-                <div className="bg-white p-4 sm:p-5 rounded-2xl border border-stone-100 shadow-sm space-y-3.5">
-                  <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest border-b border-stone-100 pb-2.5 mb-1">
-                    Itens Selecionados
-                  </h3>
-                  
-                  <div className="divide-y divide-stone-100">
+                {/* 1. LIST OF SELECTED DISHES - STEP 1 (items) */}
+                {cartStage === "items" && (
+                  <div className="bg-white p-4 sm:p-5 rounded-2xl border border-stone-100 shadow-sm space-y-3.5 animate-slide-in">
+                    <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest border-b border-stone-100 pb-2.5 mb-1">
+                      Itens Selecionados
+                    </h3>
+                    
+                    <div className="divide-y divide-stone-100">
                     {cartItems.map((item) => {
                       const optimizedThumbUrl = optimizeImageUrl(item.product.image, { width: 100, quality: 70 });
                       return (
@@ -219,9 +264,10 @@ export function CartDrawer({
                     })}
                   </div>
                 </div>
+              )}
 
-                {/* 1.5 DEDICATED HORIZONTAL RECOMMENDATIONS FOR BEBIDAS, SUCOS & SOBREMESAS */}
-                {cartItems.length > 0 && (() => {
+                {/* 1.5 DEDICATED HORIZONTAL RECOMMENDATIONS FOR BEBIDAS, SUCOS & SOBREMESAS - ONLY IN STEP 1 */}
+                {cartStage === "items" && cartItems.length > 0 && (() => {
                   const listBebidas = (allProducts || []).filter(p => p.category === "Bebidas" && p.isActive !== false);
                   const listSucos = (allProducts || []).filter(p => p.category === "Sucos Naturais" && p.isActive !== false);
                   const listSobremesas = (allProducts || []).filter(p => p.category === "Sobremesas" && p.isActive !== false);
@@ -229,7 +275,7 @@ export function CartDrawer({
                   if (listBebidas.length === 0 && listSucos.length === 0 && listSobremesas.length === 0) return null;
 
                   return (
-                    <div className="space-y-4 pt-4 pb-2 border-t border-b border-stone-100">
+                    <div className="space-y-4 pt-4 pb-2 border-t border-b border-stone-100 animate-slide-in font-sans">
                       <div className="flex items-center gap-1.5">
                         <span className="text-sm">🍰</span>
                         <h4 className="text-[11px] font-black uppercase text-stone-700 tracking-wider">
@@ -453,38 +499,58 @@ export function CartDrawer({
                   );
                 })()}
 
-                {/* 2. INSTANT ORDER BILL DETAILS */}
-                <div className="bg-white p-5 rounded-2xl border border-stone-100 shadow-sm space-y-3 font-sans">
-                  <div className="flex justify-between text-xs font-bold text-stone-600 uppercase tracking-wider border-b border-stone-100 pb-2">
-                    <span>Resumo da Conta</span>
-                  </div>
-                  
-                  <div className="flex justify-between text-sm text-stone-600">
-                    <span>Subtotal</span>
-                    <span className="font-semibold text-stone-900">{formatPrice(subtotal)}</span>
-                  </div>
+                {/* 2. INSTANT ORDER BILL DETAILS - ONLY IN STEP 1 */}
+                {cartStage === "items" && (
+                  <div className="bg-white p-5 rounded-2xl border border-stone-100 shadow-sm space-y-3 font-sans animate-slide-in">
+                    <div className="flex justify-between text-xs font-bold text-stone-600 uppercase tracking-wider border-b border-stone-100 pb-2">
+                      <span>Resumo da Conta</span>
+                    </div>
+                    
+                    <div className="flex justify-between text-sm text-stone-600">
+                      <span>Subtotal</span>
+                      <span className="font-semibold text-stone-900">{formatPrice(subtotal)}</span>
+                    </div>
 
-                  <div className="flex justify-between text-sm text-stone-600">
-                    <span>Taxa de Entrega</span>
-                    <span className="font-semibold text-stone-900">{formatPrice(deliveryFee)}</span>
-                  </div>
+                    <div className="flex justify-between text-sm text-stone-600">
+                      <span>Taxa de Entrega</span>
+                      <span className="font-semibold text-stone-900">{formatPrice(deliveryFee)}</span>
+                    </div>
 
-                  <div className="flex justify-between items-baseline pt-3.5 border-t border-stone-200/60">
-                    <span className="text-sm font-bold text-stone-900 uppercase tracking-wide">Total Geral</span>
-                    <span className="text-xl font-sans font-black text-brand-red">{formatPrice(total)}</span>
+                    <div className="flex justify-between items-baseline pt-3.5 border-t border-stone-200/60 font-sans">
+                      <span className="text-sm font-bold text-stone-900 uppercase tracking-wide">Total Geral</span>
+                      <span className="text-xl font-sans font-black text-brand-red">{formatPrice(total)}</span>
+                    </div>
                   </div>
-                </div>
+                )}
 
-                {/* 3. CHECKOUT ADDDRESS & CONTACT DETAILS */}
-                <CheckoutForm
-                  customer={customer}
-                  onUpdateCustomer={onUpdateCustomer}
-                  address={address}
-                  onUpdateAddress={onUpdateAddress}
-                  observation={observation}
-                  onUpdateObservation={onUpdateObservation}
-                  onSubmitOrder={handleFinalSubmit}
-                />
+                {/* STAGE 2: ADDRESS & CONTACT DETAILS ONLY - NO HIDDEN SCROLL INTERFERENCE */}
+                {cartStage === "address" && (
+                  <div className="space-y-4 animate-slide-in">
+                    {/* Summary Floating Header Card */}
+                    <div className="bg-slate-900 text-white p-4.5 rounded-2xl flex justify-between items-center shadow-lg border border-slate-850">
+                      <div>
+                        <p className="text-[10px] uppercase font-black text-slate-400 tracking-widest leading-none">Resumo do pedido</p>
+                        <p className="text-sm font-bold text-brand-yellow font-serif mt-1 shadow-sm">
+                          {cartItems.reduce((acc, i) => acc + i.quantity, 0)} Almoços Deliciosos
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] uppercase font-black text-slate-400 tracking-widest leading-none">Total Geral</p>
+                        <p className="text-lg font-black text-white font-mono mt-1">{formatPrice(total)}</p>
+                      </div>
+                    </div>
+
+                    <CheckoutForm
+                      customer={customer}
+                      onUpdateCustomer={onUpdateCustomer}
+                      address={address}
+                      onUpdateAddress={onUpdateAddress}
+                      observation={observation}
+                      onUpdateObservation={onUpdateObservation}
+                      onSubmitOrder={handleFinalSubmit}
+                    />
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -492,16 +558,30 @@ export function CartDrawer({
           {/* Footer Action Bar */}
           {cartItems.length > 0 && (
             <div className="bg-white border-t border-stone-200/80 p-4 sm:p-5 shadow-[0_-4px_12px_rgba(0,0,0,0.03)] z-10 font-sans">
-              <button
-                onClick={handleFinalSubmit}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 shadow-lg shadow-emerald-700/10 transition active:scale-[0.98] text-sm uppercase tracking-widest"
-              >
-                <Send className="w-4.5 h-4.5 animate-pulse" />
-                Enviar pedido pelo WhatsApp
-              </button>
-              <p className="text-[10px] text-center text-stone-400 mt-2.5 font-sans">
-                Ao clicar, você será redirecionado ao WhatsApp da Divinos Paulista para despachar o almoço.
-              </p>
+              {cartStage === "address" ? (
+                <>
+                  <button
+                    onClick={handleFinalSubmit}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 shadow-lg shadow-emerald-700/10 transition active:scale-[0.98] text-xs sm:text-sm uppercase tracking-widest cursor-pointer font-sans"
+                  >
+                    <Send className="w-5 h-5 animate-pulse text-brand-yellow" />
+                    Enviar pedido pelo WhatsApp
+                  </button>
+                  <p className="text-[10px] text-center text-stone-400 mt-2.5 font-sans leading-normal">
+                    Ao clicar, o WhatsApp será aberto de forma automática e direta para disparar o pedido.
+                  </p>
+                </>
+              ) : (
+                <button
+                  onClick={() => {
+                    // Navigate to Delivery Step via route hashes
+                    window.location.hash = "#/endereco";
+                  }}
+                  className="w-full bg-brand-red hover:bg-brand-red-dark text-white font-black py-4 px-6 rounded-2xl flex items-center justify-center gap-2.5 shadow-lg shadow-brand-red/10 transition active:scale-[0.98] text-xs sm:text-sm uppercase tracking-widest cursor-pointer font-sans"
+                >
+                  Continuar para Entrega ➜
+                </button>
+              )}
             </div>
           )}
 

@@ -1671,285 +1671,354 @@ export function AdminPanel() {
           )}
 
           {/* ABA 4: PRODUTOS */}
-          {activeTab === "products" && (
-            <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-xl font-bold text-stone-900 font-serif mb-0.5">Gerenciar Pratos do Cardápio</h2>
-                  <p className="text-xs text-stone-500">Adicione, edite preços, mude fotos ou destaque itens do seu buffet.</p>
-                </div>
+          {activeTab === "products" && (() => {
+            // Calculate groupedProducts
+            const groupedProducts = (() => {
+              const groups: { categoryId: string; categoryName: string; isActive: boolean; products: Product[] }[] = [];
+              const standardCategoryNames = new Set(data.categories.map(c => c.name));
+              
+              data.categories.forEach(cat => {
+                const catProducts = data.products.filter(p => p.category === cat.name);
+                groups.push({
+                  categoryId: cat.id,
+                  categoryName: cat.name,
+                  isActive: cat.isActive !== false,
+                  products: catProducts
+                });
+              });
+              
+              const otherProducts = data.products.filter(p => !p.category || !standardCategoryNames.has(p.category));
+              if (otherProducts.length > 0) {
+                groups.push({
+                  categoryId: "uncategorized",
+                  categoryName: "Outros / Sem Categoria",
+                  isActive: true,
+                  products: otherProducts
+                });
+              }
+              return groups;
+            })();
 
-                <button
-                  onClick={handleOpenNewProductForm}
-                  className="bg-brand-red hover:bg-brand-red-dark text-white font-extrabold px-4.5 py-2.5 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer"
-                >
-                  <Plus className="w-4 h-4 text-brand-yellow" />
-                  Novo Produto
-                </button>
-              </div>
-
-              {/* Product Form Modal wrapper if opened */}
-              {isProductFormOpen && (
-                <div className="bg-stone-55 border-2 border-brand-yellow p-5 sm:p-6 rounded-2xl space-y-4 animate-spacey relative">
-                  <div className="flex items-center justify-between border-b border-stone-150 pb-2.5">
-                    <h3 className="text-xs font-black uppercase tracking-widest text-[#8b0000] flex items-center gap-1.5">
-                      ⭐ {editingProduct ? "Editar Produto Existente" : "Cadastrar Novo Prato no Menu"}
-                    </h3>
-                    <button
-                      onClick={() => setIsProductFormOpen(false)}
-                      className="p-1 rounded-full text-stone-400 hover:text-stone-900 hover:bg-stone-100"
-                    >
-                      <X className="w-4.5 h-4.5" />
-                    </button>
+            return (
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-stone-900 font-serif mb-0.5">Gerenciar Pratos do Cardápio</h2>
+                    <p className="text-xs text-stone-500">Adicione, edite preços, mude fotos ou destaque itens do seu buffet.</p>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Name */}
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold text-stone-700">Nome do Prato / Bebida</label>
-                      <input
-                        type="text"
-                        value={prodName}
-                        onChange={(e) => setProdName(e.target.value)}
-                        placeholder="Ex: Contra Filé à Parmegiana"
-                        className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-brand-yellow"
-                      />
-                    </div>
+                  <button
+                    onClick={handleOpenNewProductForm}
+                    className="bg-brand-red hover:bg-brand-red-dark text-white font-extrabold px-4.5 py-2.5 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4 text-brand-yellow" />
+                    Novo Produto
+                  </button>
+                </div>
 
-                    {/* Category Selector */}
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold text-stone-700">Selecione a Categoria</label>
-                      <select
-                        value={prodCategory}
-                        onChange={(e) => setProdCategory(e.target.value)}
-                        className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-brand-yellow"
+                {/* Product Form Modal wrapper if opened */}
+                {isProductFormOpen && (
+                  <div className="bg-stone-55 border-2 border-brand-yellow p-5 sm:p-6 rounded-2xl space-y-4 animate-spacey relative">
+                    <div className="flex items-center justify-between border-b border-stone-150 pb-2.5">
+                      <h3 className="text-xs font-black uppercase tracking-widest text-[#8b0000] flex items-center gap-1.5">
+                        ⭐ {editingProduct ? "Editar Produto Existente" : "Cadastrar Novo Prato no Menu"}
+                      </h3>
+                      <button
+                        onClick={() => setIsProductFormOpen(false)}
+                        className="p-1 rounded-full text-stone-400 hover:text-stone-900 hover:bg-stone-100"
                       >
-                        {data.categories.map((cat) => (
-                          <option key={cat.id} value={cat.name}>{cat.name}</option>
-                        ))}
-                      </select>
+                        <X className="w-4.5 h-4.5" />
+                      </button>
                     </div>
 
-                    {/* Price */}
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold text-stone-700">Preço Regular (R$)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={prodPrice}
-                        onChange={(e) => setProdPrice(parseFloat(e.target.value) || 0)}
-                        placeholder="29.90"
-                        className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-brand-yellow"
-                      />
-                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Name */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-stone-700">Nome do Prato / Bebida</label>
+                        <input
+                          type="text"
+                          value={prodName}
+                          onChange={(e) => setProdName(e.target.value)}
+                          placeholder="Ex: Contra Filé à Parmegiana"
+                          className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-brand-yellow"
+                        />
+                      </div>
 
-                    {/* Image File select upload Base64 */}
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold text-stone-750 block">Upar Foto do Prato</label>
-                      <div className="flex items-center gap-3">
-                        <div className="w-11 h-11 rounded-lg overflow-hidden border border-stone-200 bg-stone-100 flex-shrink-0">
-                          {prodImage ? (
-                            <img src={prodImage} alt="Preview" className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full bg-stone-200 flex items-center justify-center text-[9px] text-stone-400 font-bold">SEM</div>
-                          )}
+                      {/* Category Selector */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-stone-700">Selecione a Categoria</label>
+                        <select
+                          value={prodCategory}
+                          onChange={(e) => setProdCategory(e.target.value)}
+                          className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-brand-yellow"
+                        >
+                          {data.categories.map((cat) => (
+                            <option key={cat.id} value={cat.name}>{cat.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Price */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-stone-700">Preço Regular (R$)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={prodPrice}
+                          onChange={(e) => setProdPrice(parseFloat(e.target.value) || 0)}
+                          placeholder="29.90"
+                          className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-brand-yellow"
+                        />
+                      </div>
+
+                      {/* Image File select upload Base64 */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-stone-750 block">Upar Foto do Prato</label>
+                        <div className="flex items-center gap-3">
+                          <div className="w-11 h-11 rounded-lg overflow-hidden border border-stone-200 bg-stone-100 flex-shrink-0">
+                            {prodImage ? (
+                              <img src={prodImage} alt="Preview" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full bg-stone-200 flex items-center justify-center text-[9px] text-stone-400 font-bold">SEM</div>
+                            )}
+                          </div>
+                          <label className="flex-1 flex items-center justify-center border border-dashed border-stone-300 hover:border-brand-yellow bg-white px-3 py-1.5 rounded-lg cursor-pointer transition text-[11px] font-semibold text-stone-600 text-center">
+                            <Upload className="w-3.5 h-3.5 text-stone-400 mr-1.5" />
+                            Escolher arquivo
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => handleFileChange(e, (base64) => {
+                                setProdImage(base64);
+                                showToast("Foto processada!", "success");
+                              }, "product")}
+                            />
+                          </label>
                         </div>
-                        <label className="flex-1 flex items-center justify-center border border-dashed border-stone-300 hover:border-brand-yellow bg-white px-3 py-1.5 rounded-lg cursor-pointer transition text-[11px] font-semibold text-stone-600 text-center">
-                          <Upload className="w-3.5 h-3.5 text-stone-400 mr-1.5" />
-                          Escolher arquivo
+                      </div>
+
+                      {/* Description */}
+                      <div className="space-y-1 sm:col-span-2">
+                        <label className="text-xs font-bold text-stone-700">Descrição dos Acompanhamentos / Ingredientes</label>
+                        <textarea
+                          rows={2}
+                          value={prodDesc}
+                          onChange={(e) => setProdDesc(e.target.value)}
+                          placeholder="Ex: Servido com arroz de alho frito, fritas sequinhas, feijoada rica e farofa."
+                          className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-brand-yellow"
+                        />
+                      </div>
+
+                      {/* Selo (Badge) */}
+                      <div className="space-y-1 sm:col-span-2">
+                        <label className="text-xs font-bold text-stone-700">Etiqueta Especial / Selo (Badge) opcional</label>
+                        <input
+                          type="text"
+                          value={prodSelo}
+                          onChange={(e) => setProdSelo(e.target.value)}
+                          placeholder="Ex: Mais Vendido, Novidade, Orgânico, Picante"
+                          className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-brand-yellow"
+                        />
+                      </div>
+
+                      {/* Toggles */}
+                      <div className="sm:col-span-2 flex flex-wrap gap-4 pt-1.5">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
                           <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => handleFileChange(e, (base64) => {
-                              setProdImage(base64);
-                              showToast("Foto processada!", "success");
-                            }, "product")}
+                            type="checkbox"
+                            checked={prodIsActive}
+                            onChange={(e) => setProdIsActive(e.target.checked)}
+                            className="rounded text-brand-red border-stone-300 focus:ring-brand-yellow w-4 h-4"
                           />
+                          <span className="text-xs font-bold text-stone-700 uppercase">Item Ativo (Visível)</span>
+                        </label>
+
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={prodIsFeatured}
+                            onChange={(e) => setProdIsFeatured(e.target.checked)}
+                            className="rounded text-brand-red border-stone-300 focus:ring-brand-yellow w-4 h-4"
+                          />
+                          <span className="text-xs font-bold text-stone-700 uppercase flex items-center gap-0.5">
+                            ⭐ Marcar Destaque
+                          </span>
                         </label>
                       </div>
                     </div>
 
-                    {/* Description */}
-                    <div className="space-y-1 sm:col-span-2">
-                      <label className="text-xs font-bold text-stone-700">Descrição dos Acompanhamentos / Ingredientes</label>
-                      <textarea
-                        rows={2}
-                        value={prodDesc}
-                        onChange={(e) => setProdDesc(e.target.value)}
-                        placeholder="Ex: Servido com arroz de alho frito, fritas sequinhas, feijoada rica e farofa."
-                        className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-brand-yellow"
-                      />
-                    </div>
-
-                    {/* Selo (Badge) */}
-                    <div className="space-y-1 sm:col-span-2">
-                      <label className="text-xs font-bold text-stone-700">Etiqueta Especial / Selo (Badge) opcional</label>
-                      <input
-                        type="text"
-                        value={prodSelo}
-                        onChange={(e) => setProdSelo(e.target.value)}
-                        placeholder="Ex: Mais Vendido, Novidade, Orgânico, Picante"
-                        className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-brand-yellow"
-                      />
-                    </div>
-
-                    {/* Toggles */}
-                    <div className="sm:col-span-2 flex flex-wrap gap-4 pt-1.5">
-                      <label className="flex items-center gap-2 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={prodIsActive}
-                          onChange={(e) => setProdIsActive(e.target.checked)}
-                          className="rounded text-brand-red border-stone-300 focus:ring-brand-yellow w-4 h-4"
-                        />
-                        <span className="text-xs font-bold text-stone-700 uppercase">Item Ativo (Visível)</span>
-                      </label>
-
-                      <label className="flex items-center gap-2 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={prodIsFeatured}
-                          onChange={(e) => setProdIsFeatured(e.target.checked)}
-                          className="rounded text-brand-red border-stone-300 focus:ring-brand-yellow w-4 h-4"
-                        />
-                        <span className="text-xs font-bold text-stone-700 uppercase flex items-center gap-0.5">
-                          ⭐ Marcar Destaque
-                        </span>
-                      </label>
+                    <div className="flex justify-end gap-2 pt-3 border-t border-stone-150">
+                      <button
+                        onClick={() => setIsProductFormOpen(false)}
+                        className="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-xs font-bold uppercase transition"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={handleSaveProduct}
+                        className="px-5 py-2 bg-[#8b0000] hover:bg-red-800 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition"
+                      >
+                        {editingProduct ? "Atualizar" : "Salvar"}
+                      </button>
                     </div>
                   </div>
+                )}
 
-                  <div className="flex justify-end gap-2 pt-3 border-t border-stone-150">
-                    <button
-                      onClick={() => setIsProductFormOpen(false)}
-                      className="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-xs font-bold uppercase transition"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      onClick={handleSaveProduct}
-                      className="px-5 py-2 bg-[#8b0000] hover:bg-red-800 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition"
-                    >
-                      {editingProduct ? "Atualizar" : "Como Adicionar"}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Product Listing Table */}
-              <div className="border border-stone-150 rounded-2xl overflow-hidden divide-y divide-stone-100">
-                <div className="bg-stone-50 px-4 py-3 grid grid-cols-12 text-[10px] font-black uppercase text-stone-500 tracking-wider">
-                  <div className="col-span-2 pl-1">Foto</div>
-                  <div className="col-span-5">Prato / Categoria</div>
-                  <div className="col-span-2">Preço</div>
-                  <div className="col-span-3 text-right pr-2">Ações</div>
-                </div>
-
+                {/* Grouped Product Listing list sections */}
                 {data.products.length === 0 ? (
-                  <div className="text-center py-10 text-stone-400 text-xs font-medium">Nenhum produto cadastrado no cardápio.</div>
+                  <div className="border border-stone-150 rounded-2xl py-12 text-center text-stone-400 text-xs font-medium bg-white">
+                    Nenhum produto cadastrado no cardápio.
+                  </div>
                 ) : (
-                  data.products.map((p) => {
-                    const isProductPratoDoDia = data.pratoDoDia.isActive && data.pratoDoDia.name.trim().toLowerCase() === p.name.trim().toLowerCase();
-                    return (
-                      <div key={p.id} className={`px-4 py-3.5 grid grid-cols-12 items-center gap-2 hover:bg-stone-50/40 transition ${isProductPratoDoDia ? "bg-amber-50/20 border-l-4 border-brand-yellow" : ""}`}>
-                        {/* Photo column */}
-                        <div className="col-span-2 pl-1">
-                          <div className="w-12 h-12 rounded-xl overflow-hidden border border-stone-200 bg-stone-100 relative shadow-sm">
-                            <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
-                            {p.isFeatured && (
-                              <div className="absolute top-0.5 right-0.5 bg-brand-yellow text-slate-950 p-0.5 rounded-full">
-                                <Star className="w-2.5 h-2.5 fill-current" />
+                  <div className="space-y-6">
+                    {groupedProducts.map((group) => {
+                      // Skip categories with no products to stay clean and focused
+                      if (group.products.length === 0) return null;
+
+                      return (
+                        <div key={group.categoryId} className="bg-white rounded-2xl border border-stone-200/80 shadow-sm overflow-hidden animate-slide-in">
+                          {/* Group Header */}
+                          <div className="bg-stone-50 border-b border-stone-150 px-4 sm:px-5 py-3 flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm">🍲</span>
+                              <h3 className="text-xs font-black uppercase tracking-wider text-stone-800 font-sans">
+                                {group.categoryName}
+                              </h3>
+                              <span className="bg-stone-200/80 text-stone-700 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full font-mono">
+                                {group.products.length} {group.products.length === 1 ? "Prato" : "Pratos"}
+                              </span>
+                              {!group.isActive && (
+                                <span className="bg-red-50 text-red-600 border border-red-100 text-[9px] font-black uppercase px-2 py-0.5 rounded-full">
+                                  Inativo
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Products Table under this category */}
+                          <div className="divide-y divide-stone-105 overflow-x-auto">
+                            <div className="min-w-[600px]">
+                              {/* Header row */}
+                              <div className="bg-stone-50/40 px-4 py-2 border-b border-stone-100 grid grid-cols-12 text-[10px] font-black uppercase text-stone-400 tracking-wider">
+                                <div className="col-span-2 pl-1">Foto</div>
+                                <div className="col-span-5">Prato / Descrição</div>
+                                <div className="col-span-2">Preço</div>
+                                <div className="col-span-3 text-right pr-2">Ações</div>
                               </div>
-                            )}
+
+                              {/* Rows */}
+                              <div className="divide-y divide-stone-100">
+                                {group.products.map((p) => {
+                                  const isProductPratoDoDia = data.pratoDoDia.isActive && data.pratoDoDia.name.trim().toLowerCase() === p.name.trim().toLowerCase();
+                                  return (
+                                    <div key={p.id} className={`px-4 py-3.5 grid grid-cols-12 items-center gap-2 hover:bg-stone-50/40 transition-colors duration-100 ${isProductPratoDoDia ? "bg-amber-55/20 border-l-4 border-brand-yellow" : ""}`}>
+                                      {/* Photo column */}
+                                      <div className="col-span-2 pl-1">
+                                        <div className="w-12 h-12 rounded-xl overflow-hidden border border-stone-200 bg-stone-100 relative shadow-sm">
+                                          <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
+                                          {p.isFeatured && (
+                                            <div className="absolute top-0.5 right-0.5 bg-brand-yellow text-slate-950 p-0.5 rounded-full shadow-sm">
+                                              <Star className="w-2.5 h-2.5 fill-current" />
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {/* Info column */}
+                                      <div className="col-span-5 space-y-0.5 pr-2">
+                                        <h4 className="text-xs font-extrabold text-stone-900 tracking-tight leading-tight flex flex-wrap items-center gap-1.5">
+                                          {p.name}
+                                          {p.isActive === false && (
+                                            <span className="text-[8px] bg-red-100 text-stone-850 px-1.5 py-0.5 rounded uppercase font-extrabold">Oculto</span>
+                                          )}
+                                          {isProductPratoDoDia && (
+                                            <span className="text-[8px] bg-amber-100 text-amber-850 border border-amber-250 px-1.5 py-0.5 rounded font-black uppercase flex items-center gap-0.5">
+                                              <ChefHat className="w-2 h-2 text-brand-red fill-current" /> Especial do Dia
+                                            </span>
+                                          )}
+                                        </h4>
+                                        {p.description && (
+                                          <p className="text-[10px] text-stone-450 line-clamp-1 pr-1 font-medium">{p.description}</p>
+                                        )}
+                                      </div>
+
+                                      {/* Price column */}
+                                      <div className="col-span-2">
+                                        <span className="text-xs font-black text-stone-900 font-mono">
+                                          {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(p.price)}
+                                        </span>
+                                      </div>
+
+                                      {/* Actions column */}
+                                      <div className="col-span-3 flex justify-end gap-1.5 pr-1">
+                                        <button
+                                          onClick={() => {
+                                            setData(prev => ({
+                                              ...prev,
+                                              pratoDoDia: {
+                                                ...prev.pratoDoDia,
+                                                name: p.name,
+                                                price: p.price,
+                                                description: p.description || "",
+                                                image: p.image,
+                                                isActive: true
+                                              }
+                                            }));
+                                            showToast(`"${p.name}" foi selecionado como o Especial do Dia!`, "success");
+                                          }}
+                                          className={`p-1.5 rounded-lg border transition ${
+                                            isProductPratoDoDia
+                                              ? "bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200"
+                                              : "bg-stone-50 border-stone-200 text-stone-400 hover:text-[#8b0000] hover:bg-amber-50"
+                                          }`}
+                                          title={isProductPratoDoDia ? "Este é o Prato do Dia ativo" : "Tornar este o Prato do Dia"}
+                                        >
+                                          <ChefHat className={`w-3.5 h-3.5 ${isProductPratoDoDia ? "fill-brand-yellow text-brand-red" : ""}`} />
+                                        </button>
+
+                                        <button
+                                          onClick={() => handleToggleProductActive(p.id)}
+                                          className={`p-1.5 rounded-lg border transition ${
+                                            p.isActive !== false
+                                              ? "bg-emerald-50 border-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                                              : "bg-stone-50 border-stone-200 text-stone-400 hover:bg-stone-100"
+                                          }`}
+                                          title={p.isActive !== false ? "Desativar Item" : "Reativar Item"}
+                                        >
+                                          {p.isActive !== false ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                                        </button>
+                                        
+                                        <button
+                                          onClick={() => handleOpenEditProductForm(p)}
+                                          className="p-1.5 border border-stone-200 text-stone-500 hover:text-stone-950 hover:bg-stone-100 rounded-lg transition"
+                                          title="Editar Atributos"
+                                        >
+                                          <Edit3 className="w-3.5 h-3.5" />
+                                        </button>
+
+                                        <button
+                                          onClick={() => handleDeleteProduct(p.id, p.name)}
+                                          className="p-1.5 border border-stone-200 text-stone-400 hover:text-brand-red hover:bg-stone-100 rounded-lg transition"
+                                          title="Deletar Prato"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
                           </div>
                         </div>
-
-                        {/* Info column */}
-                        <div className="col-span-5 space-y-0.5">
-                          <h4 className="text-xs font-extrabold text-stone-900 tracking-tight leading-tight flex flex-wrap items-center gap-1.5">
-                            {p.name}
-                            {p.isActive === false && (
-                              <span className="text-[8px] bg-red-100 text-stone-850 px-1.5 py-0.5 rounded uppercase font-extrabold">Oculto</span>
-                            )}
-                            {isProductPratoDoDia && (
-                              <span className="text-[8px] bg-amber-100 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded font-black uppercase flex items-center gap-0.5">
-                                <ChefHat className="w-2 h-2 text-brand-red fill-current" /> Especial do Dia
-                              </span>
-                            )}
-                          </h4>
-                          <span className="text-[10px] uppercase font-bold text-stone-400 block tracking-wider">{p.category}</span>
-                        </div>
-
-                        {/* Price column */}
-                        <div className="col-span-2">
-                          <span className="text-xs font-extrabold text-stone-900">
-                            {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(p.price)}
-                          </span>
-                        </div>
-
-                        {/* Actions column */}
-                        <div className="col-span-3 flex justify-end gap-1.5 pr-1">
-                          <button
-                            onClick={() => {
-                              setData(prev => ({
-                                ...prev,
-                                pratoDoDia: {
-                                  ...prev.pratoDoDia,
-                                  name: p.name,
-                                  price: p.price,
-                                  description: p.description || "",
-                                  image: p.image,
-                                  isActive: true
-                                }
-                              }));
-                              showToast(`"${p.name}" foi selecionado como o Especial do Dia!`, "success");
-                            }}
-                            className={`p-1.5 rounded-lg border transition ${
-                              isProductPratoDoDia
-                                ? "bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200"
-                                : "bg-stone-50 border-stone-200 text-stone-400 hover:text-[#8b0000] hover:bg-amber-50"
-                            }`}
-                            title={isProductPratoDoDia ? "Este é o Prato do Dia ativo" : "Tornar este o Prato do Dia"}
-                          >
-                            <ChefHat className={`w-3.5 h-3.5 ${isProductPratoDoDia ? "fill-brand-yellow text-brand-red" : ""}`} />
-                          </button>
-
-                          <button
-                            onClick={() => handleToggleProductActive(p.id)}
-                            className={`p-1.5 rounded-lg border transition ${
-                              p.isActive !== false
-                                ? "bg-emerald-50 border-emerald-100 text-emerald-800 hover:bg-emerald-100"
-                                : "bg-stone-50 border-stone-200 text-stone-400 hover:bg-stone-100"
-                            }`}
-                            title={p.isActive !== false ? "Desativar Item" : "Reativar Item"}
-                          >
-                            {p.isActive !== false ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                          </button>
-                          
-                          <button
-                            onClick={() => handleOpenEditProductForm(p)}
-                            className="p-1.5 border border-stone-200 text-stone-500 hover:text-stone-950 hover:bg-stone-100 rounded-lg transition"
-                            title="Editar Atributos"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </button>
-
-                          <button
-                            onClick={() => handleDeleteProduct(p.id, p.name)}
-                            className="p-1.5 border border-stone-200 text-stone-400 hover:text-brand-red hover:bg-stone-100 rounded-lg transition"
-                            title="Deletar Prato"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })
+                      );
+                    })}
+                  </div>
                 )}
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* ABA 5: ENTREGA */}
           {activeTab === "delivery" && (
