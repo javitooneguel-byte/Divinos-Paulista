@@ -8,7 +8,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { 
   ShoppingBag, 
   Search, 
@@ -22,7 +22,9 @@ import {
   Plus,
   ChefHat,
   UtensilsCrossed,
-  Truck
+  Truck,
+  Flame,
+  MessageSquare
 } from "lucide-react";
 import { Header } from "./components/Header";
 import { PratoDoDia } from "./components/PratoDoDia";
@@ -32,6 +34,7 @@ import { CartDrawer } from "./components/CartDrawer";
 import { AdminPanel } from "./components/AdminPanel";
 import { ProductModal } from "./components/ProductModal";
 import { RedirectionPage } from "./components/RedirectionPage";
+import { MaisPedidosSection } from "./components/MaisPedidosSection";
 import { loadAppData } from "./lib/db";
 import { Product, CartItem, Customer, Address } from "./types";
 import { 
@@ -210,12 +213,28 @@ export default function App() {
   // Custom styled alert modal state
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
 
+  // Added product toast notification state
+  const [addedNotification, setAddedNotification] = useState<string | null>(null);
+
   // Cart calculation state
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   
   // Product detail modal state
   const [selectedProductForModal, setSelectedProductForModal] = useState<Product | null>(null);
   const [isProductModalOpen, setIsProductModalOpen] = useState<boolean>(false);
+
+  // Trigger ViewContent when the product modal is opened
+  useEffect(() => {
+    if (isProductModalOpen && selectedProductForModal) {
+      safeTrack("ViewContent", {
+        content_name: selectedProductForModal.name,
+        content_ids: [selectedProductForModal.id],
+        content_type: "product",
+        value: selectedProductForModal.price,
+        currency: "BRL"
+      });
+    }
+  }, [isProductModalOpen, selectedProductForModal]);
 
   // Checkout inputs state
   const [customer, setCustomer] = useState<Customer>({
@@ -236,6 +255,85 @@ export default function App() {
 
   // Menu list reference for smooth scrolling
   const menuCatalogRef = useRef<HTMLDivElement>(null);
+  const maisPedidosRef = useRef<HTMLDivElement>(null);
+
+  // We dynamically build the "Mais Pedidos" items list based purely on the admin's database configurations (isFeatured === true)
+  const maisPedidosList = useMemo(() => {
+    if (!appData || !appData.products) return [];
+
+    // Filter products marked as isFeatured
+    const featuredList = appData.products.filter((p: any) => p.isFeatured === true && p.isActive !== false);
+    
+    if (featuredList.length > 0) {
+      return featuredList;
+    }
+
+    // Default fallbacks if NO products have isFeatured: true selected yet (initial state)
+    const fallbacks = [
+      {
+        id: "feijoada-completa",
+        name: "Feijoada Completa",
+        description: "Feijoada robusta servida com arroz branco, couve fresca refogada, farofa temperada, vinagrete, torresmo crocante e fatias de laranja.",
+        price: 39.90,
+        category: "Pratos Especiais",
+        image: "https://images.unsplash.com/photo-1541518763669-27fef04b14ea?q=80&w=1200&auto=format&fit=crop",
+        selo: "🔥 Mais pedido"
+      },
+      {
+        id: "costela-cozida-mandioca",
+        name: "Costela Cozida com Mandioca",
+        description: "Costela bovina cozida lentamente até desfiar ao molho de ervas fresco, servida com mandioca na manteiga, arroz, feijão and farofa.",
+        price: 44.90,
+        category: "Pratos Especiais",
+        image: "https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=600&auto=format&fit=crop",
+        selo: "🔥 Mais pedido"
+      },
+      {
+        id: "parmegiana-frango-especial",
+        name: "Parmegiana de Frango Especial",
+        description: "Filé de frango empanado crocante coberto com molho de tomate artesanal e queijo muçarela derretido, servido com arroz e fritas.",
+        price: 39.90,
+        category: "Pratos Especiais",
+        image: "https://images.unsplash.com/photo-1525755662778-989d0524087e?q=80&w=600&auto=format&fit=crop",
+        selo: "⭐ Especial da casa"
+      },
+      {
+        id: "bife-a-cavalo",
+        name: "Bife à Cavalo",
+        description: "Bife suculento de contra filé grelhado na chapa coroado com dois ovos fritos perfeitos, acompanhado de arroz soltinho, feijão caseiro, batata frita e farofa.",
+        price: 38.90,
+        category: "Pratos Executivos",
+        image: "https://images.unsplash.com/photo-1600891964599-f61ba0e24092?q=80&w=600&auto=format&fit=crop",
+        selo: "🍽️ Bem servido"
+      },
+      {
+        id: "executivo-frango-cozido-batatas",
+        name: "Executivo de Frango Cozido com Batatas",
+        description: "Peito e sobrecoxa de frango bem cozidos e suculentos com batatas coradas, servidos com arroz branco soltinho, feijão caseiro temperado e farofa de milho.",
+        price: 33.90,
+        category: "Pratos Executivos",
+        image: "https://images.unsplash.com/photo-1594756202469-9ff9799a2e4e?q=80&w=600&auto=format&fit=crop",
+        selo: "🍽️ Bem servido"
+      }
+    ];
+
+    return fallbacks.map(fallback => {
+      // Find the product by name or substring to allow for minor spelling updates by the admin
+      const matched = appData.products.find((p: any) => 
+        p.name.toLowerCase() === fallback.name.toLowerCase() ||
+        p.name.toLowerCase().includes(fallback.name.toLowerCase().replace("especial", "").trim())
+      );
+      if (matched) {
+        return {
+          ...fallback,
+          ...matched,
+          // Guarantee it has a premium tag if none is present
+          selo: matched.selo || fallback.selo
+        };
+      }
+      return fallback;
+    });
+  }, [appData]);
 
   // Intercept Admin Route
   if (currentPath === "/admin" || currentPath.startsWith("/admin") || window.location.hash === "#/admin") {
@@ -304,6 +402,17 @@ export default function App() {
     );
   }
 
+  const toastTimeoutRef = useRef<any>(null);
+  const triggerAddedToast = (productName: string) => {
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+    }
+    setAddedNotification(productName);
+    toastTimeoutRef.current = setTimeout(() => {
+      setAddedNotification(null);
+    }, 5000);
+  };
+
   // Cart operations
   const handleAddToCart = (product: Product) => {
     // Opening the details modal instead of directly adding
@@ -314,11 +423,10 @@ export default function App() {
   const handleAddToCartDirectly = (product: Product) => {
     safeTrack("AddToCart", {
       content_name: product.name,
-      content_category: product.category,
-      value: product.price,
-      currency: "BRL",
       content_ids: [product.id],
-      content_type: "product"
+      content_type: "product",
+      value: product.price,
+      currency: "BRL"
     });
 
     setCartItems((prevItems) => {
@@ -331,16 +439,17 @@ export default function App() {
       }
       return [...prevItems, { id: compositeId, product, quantity: 1, observation: "" }];
     });
+
+    triggerAddedToast(product.name);
   };
 
   const handleAddToCartWithDetails = (product: Product, quantity: number, observation: string) => {
     safeTrack("AddToCart", {
       content_name: product.name,
-      content_category: product.category,
-      value: product.price,
-      currency: "BRL",
       content_ids: [product.id],
-      content_type: "product"
+      content_type: "product",
+      value: Number((product.price * quantity).toFixed(2)),
+      currency: "BRL"
     });
 
     const obsText = observation.trim();
@@ -355,6 +464,8 @@ export default function App() {
       }
       return [...prevItems, { id: compositeId, product, quantity, observation: obsText }];
     });
+
+    triggerAddedToast(product.name);
   };
 
   const handleCartAddAndIncrement = (product: Product, quantity: number = 1, observation?: string) => {
@@ -371,6 +482,8 @@ export default function App() {
       }
       return [...prevItems, { id: compositeId, product, quantity, observation: obsText }];
     });
+
+    triggerAddedToast(product.name);
   };
 
   const handleRemoveOneFromCart = (cartItemId: string) => {
@@ -584,13 +697,26 @@ export default function App() {
 
     const compiledUrl = `https://wa.me/${appData.restaurant.whatsapp}?text=${encodeURIComponent(messageText)}`;
     
-    // Trigger Meta Pixel Lead event for the finalized order going to WhatsApp
-    safeTrack("Lead", {
-      value: cartTotal,
-      currency: "BRL",
-      content_name: `Pedido de ${customer.name.trim()}`,
-      num_items: totalItemsCount
-    });
+    // Generate an order ID for deduplication and matching
+    const orderId = "order_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+
+    // Save full order details to sessionStorage so RedirectionPage can trigger Lead and Purchase safely and with no duplication
+    const orderDetails = {
+      orderId,
+      cartTotal: Number(cartTotal.toFixed(2)),
+      totalItems: totalItemsCount,
+      cartItems: cartItems.map(item => ({
+        id: item.product.id,
+        quantity: item.quantity,
+        price: item.product.price
+      })),
+      customer: {
+        name: customer.name.trim(),
+        phone: customer.phone.trim(),
+        city: address.city.trim()
+      }
+    };
+    sessionStorage.setItem("last_order_details", JSON.stringify(orderDetails));
 
     // Save pending WhatsApp redirect URL to sessionStorage
     sessionStorage.setItem("pending_whatsapp_url", compiledUrl);
@@ -611,6 +737,41 @@ export default function App() {
   return (
     <div className="min-h-screen bg-stone-50 text-stone-900 select-none flex flex-col font-sans pb-24 md:pb-8">
       
+      {/* 2. Top Info Bar (🚚 Delivery disponível, ⏱️ Entrega em até 30 minutos, 📲 Monte seu pedido online) */}
+      <div className="sticky top-0 z-40 bg-gradient-to-r from-stone-900 to-[#8b0000] text-brand-yellow font-extrabold text-[11px] sm:text-xs py-2.5 px-4 shadow-md border-b-2 border-brand-yellow/10">
+        <div className="max-w-5xl mx-auto flex items-center justify-around gap-2 flex-wrap text-center">
+          <span className="flex items-center gap-1">🚚 Delivery disponível</span>
+          <span className="h-3 w-px bg-brand-yellow/30 hidden xs:inline" />
+          <span className="flex items-center gap-1">⏱️ Entrega em até 30 minutos</span>
+          <span className="h-3 w-px bg-brand-yellow/30 hidden md:inline" />
+          <span className="flex items-center gap-1">📲 Monte seu pedido online</span>
+        </div>
+      </div>
+
+      {/* 7. Added Product Toast Notification */}
+      {addedNotification && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 w-full max-w-sm px-4 animate-slide-down">
+          <div className="bg-stone-900 border border-brand-yellow/30 text-white rounded-3xl p-4 shadow-2xl flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="text-emerald-500 text-lg shrink-0">✅</span>
+              <div className="min-w-0">
+                <p className="text-xs font-black text-white uppercase tracking-wider">Adicionado com sucesso!</p>
+                <p className="text-stone-300 font-bold text-xs truncate leading-tight mt-0.5">{addedNotification}</p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setAddedNotification(null);
+                window.location.hash = "#/carrinho";
+              }}
+              className="bg-brand-red hover:bg-[#a61515] active:scale-95 text-white text-[10px] font-black uppercase tracking-wider py-2.5 px-3 rounded-xl transition shrink-0 cursor-pointer shadow-md"
+            >
+              Ver meu pedido
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Visual Header Banner */}
       <Header onScrollToMenu={handleScrollToMenu} restaurant={appData.restaurant} />
 
@@ -657,6 +818,15 @@ export default function App() {
           cartQuantity={cartItems.filter((item) => item.product.id === pratoDoDiaProduct.id).reduce((acc, item) => acc + item.quantity, 0)}
         />
       )}
+
+      {/* 1. 🔥 Mais pedidos do Divinos Section */}
+      <div ref={maisPedidosRef} className="scroll-mt-16">
+        <MaisPedidosSection 
+          products={maisPedidosList}
+          cartItems={cartItems}
+          onAdd={handleAddToCart}
+        />
+      </div>
 
       {/* Menu Catalog Anchor Section */}
       <div ref={menuCatalogRef} className="scroll-mt-6 max-w-5xl mx-auto w-full px-4 mb-4">
@@ -752,19 +922,46 @@ export default function App() {
       </footer>
 
       {/* MOBILE STICKY BOTTOM ACTION BAR */}
-      {totalItemsCount > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-stone-200 shadow-lg z-40 md:hidden flex items-center justify-between font-sans">
-          <div className="flex flex-col text-left">
-            <span className="text-[10px] uppercase font-bold text-stone-400">Seu Pedido ({totalItemsCount})</span>
-            <span className="text-base font-sans font-black text-brand-red">{formatPriceBrl(cartSubtotal)}</span>
+      {totalItemsCount > 0 ? (
+        <div 
+          onClick={() => window.location.hash = "#/carrinho"}
+          className="fixed bottom-0 left-0 right-0 p-3.5 bg-stone-900 border-t border-brand-yellow/20 shadow-2xl z-40 md:hidden flex items-center justify-between font-sans cursor-pointer animate-slide-up"
+        >
+          <div className="flex items-center gap-3">
+            <div className="relative bg-brand-red text-white p-2.5 rounded-xl">
+              <ShoppingBag className="w-5 h-5 text-brand-yellow" />
+              <span className="absolute -top-1.5 -right-1.5 bg-brand-yellow text-stone-950 font-black text-[9px] px-1.5 py-0.5 rounded-full leading-none">
+                {totalItemsCount}
+              </span>
+            </div>
+            <div className="flex flex-col text-left">
+              <span className="text-[10px] uppercase font-bold text-stone-400 tracking-wider">🛒 Meu pedido</span>
+              <span className="text-sm font-sans font-black text-brand-yellow">{formatPriceBrl(cartSubtotal)}</span>
+            </div>
           </div>
 
           <button
-            onClick={() => window.location.hash = "#/carrinho"}
-            className="bg-brand-red hover:bg-brand-red-dark text-white font-bold py-3 px-5 rounded-xl text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-md transform active:scale-95 cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              window.location.hash = "#/carrinho";
+            }}
+            className="bg-brand-red hover:bg-[#a61515] text-white font-extrabold py-2.5 px-4.5 rounded-xl text-xs uppercase tracking-wider cursor-pointer"
           >
-            <ShoppingBag className="w-4 h-4" />
             Ver Carrinho
+          </button>
+        </div>
+      ) : (
+        /* 3. MOBILE FIXED BUTTON: Fazer Pedido Agora (When cart has 0 items) */
+        <div className="fixed bottom-4 left-4 right-4 z-40 md:hidden animate-slide-up">
+          <button
+            onClick={() => {
+              if (maisPedidosRef.current) {
+                maisPedidosRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+              }
+            }}
+            className="w-full bg-brand-red hover:bg-[#a51515] active:scale-95 text-white font-black py-4 px-6 rounded-2xl text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-2xl cursor-pointer"
+          >
+            🍽️ Fazer Pedido Agora
           </button>
         </div>
       )}

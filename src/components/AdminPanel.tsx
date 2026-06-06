@@ -20,7 +20,9 @@ import {
   ChefHat,
   Sparkles,
   Lock,
-  AlertTriangle
+  AlertTriangle,
+  Flame,
+  Search
 } from "lucide-react";
 import { AppDataStore, Product, CategoryConfig, PratoDoDiaConfig, RestaurantConfig } from "../types";
 import { loadAppData, saveAppData, resetAppDataToDefault } from "../lib/db";
@@ -102,7 +104,7 @@ export function AdminPanel() {
   const [hasFetched, setHasFetched] = useState(false);
   
   // Tab control
-  const [activeTab, setActiveTab] = useState<"restaurant" | "pratoDoDia" | "categories" | "products" | "delivery">("restaurant");
+  const [activeTab, setActiveTab] = useState<"restaurant" | "pratoDoDia" | "categories" | "products" | "delivery" | "maisPedidos">("restaurant");
   
   // Feedback alerts
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -124,6 +126,7 @@ export function AdminPanel() {
   // Products state
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [maisPedidosQuery, setMaisPedidosQuery] = useState("");
 
   // Custom Confirmation Dialog State
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -174,6 +177,14 @@ export function AdminPanel() {
       return () => clearTimeout(timer);
     }
   }, [toast]);
+
+  // Sincronizar cache local instantaneamente quando "data" mudarem
+  useEffect(() => {
+    if (hasFetched && data) {
+      saveAppData(data);
+      localStorage.setItem("divinos_paulista_app_data_cache", JSON.stringify(data));
+    }
+  }, [data, hasFetched]);
 
   // Check auth session on mount
   useEffect(() => {
@@ -701,6 +712,37 @@ export function AdminPanel() {
     setIsProductFormOpen(true);
   };
 
+  const handleToggleFeatured = async (productId: string, isNowFeatured: boolean) => {
+    // 1. Update state first so everything updates instantly
+    setData((prev) => {
+      const updatedProducts = prev.products.map((p) =>
+        p.id === productId ? { ...p, isFeatured: isNowFeatured } : p
+      );
+      return {
+        ...prev,
+        products: updatedProducts
+      };
+    });
+
+    // 2. Persist to Supabase
+    const prod = data.products.find((p) => p.id === productId);
+    if (prod) {
+      const updatedProd = { ...prod, isFeatured: isNowFeatured };
+      try {
+        await updateSupabaseProduct(productId, updatedProd);
+        showToast(
+          isNowFeatured
+            ? `"${prod.name}" adicionado aos Mais Pedidos!`
+            : `"${prod.name}" removido dos Mais Pedidos!`,
+          "success"
+        );
+      } catch (err) {
+        console.error("Erro ao atualizar em Supabase:", err);
+        showToast("Erro ao salvar alteração de Destaque.", "error");
+      }
+    }
+  };
+
   const handleOpenEditProductForm = (product: Product) => {
     setEditingProduct(product);
     setProdName(product.name);
@@ -712,6 +754,27 @@ export function AdminPanel() {
     setProdIsFeatured(product.isFeatured === true);
     setProdSelo(product.selo || "");
     setIsProductFormOpen(true);
+  };
+
+  const handleEditMaisPedido = (fallbackItem: any) => {
+    const matched = data.products.find((p) => 
+      p.name.toLowerCase() === fallbackItem.name.toLowerCase() ||
+      p.name.toLowerCase().includes(fallbackItem.name.toLowerCase().replace("especial", "").trim())
+    );
+    if (matched) {
+      handleOpenEditProductForm(matched);
+    } else {
+      setEditingProduct(null);
+      setProdName(fallbackItem.name);
+      setProdDesc(fallbackItem.description);
+      setProdPrice(fallbackItem.price);
+      setProdCategory(fallbackItem.category || data.categories[0]?.name || "Pratos Especiais");
+      setProdImage(fallbackItem.image);
+      setProdIsActive(true);
+      setProdIsFeatured(true);
+      setProdSelo(fallbackItem.selo || "");
+      setIsProductFormOpen(true);
+    }
   };
 
   const handleSaveProduct = async () => {
@@ -1171,6 +1234,18 @@ export function AdminPanel() {
           >
             <Truck className="w-4 h-4" />
             5. Entrega
+          </button>
+
+          <button
+            onClick={() => setActiveTab("maisPedidos")}
+            className={`w-full text-left px-4 py-3.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2.5 whitespace-nowrap cursor-pointer ${
+              activeTab === "maisPedidos"
+                ? "bg-white text-stone-950 shadow border-l-4 border-brand-yellow"
+                : "text-stone-600 hover:bg-white/40 hover:text-stone-900"
+            }`}
+          >
+            <Flame className="w-4 h-4 text-brand-red fill-brand-yellow/30" />
+            6. Mais Pedidos
           </button>
         </nav>
 
@@ -2065,6 +2140,151 @@ export function AdminPanel() {
               </div>
             </div>
           )}
+
+          {/* ABA 6: MAIS PEDIDOS DO DIVINOS */}
+          {activeTab === "maisPedidos" && (() => {
+            const featuredProducts = data.products.filter(p => p.isFeatured === true);
+            const otherProductsFiltered = data.products.filter(p => {
+              const isNotFeatured = p.isFeatured !== true;
+              const matchesSearch = p.name.toLowerCase().includes(maisPedidosQuery.toLowerCase()) || 
+                                    (p.category && p.category.toLowerCase().includes(maisPedidosQuery.toLowerCase()));
+              return isNotFeatured && matchesSearch;
+            });
+
+            return (
+              <div className="space-y-6 animate-fade-in">
+                <div>
+                  <div className="inline-flex items-center gap-1.5 bg-brand-red/10 border border-brand-red/25 px-3 py-1 rounded-full text-brand-red font-black text-[10px] tracking-wider uppercase mb-1.5">
+                    <Flame className="w-3.5 h-3.5 fill-current animate-pulse text-brand-yellow" />
+                    Mais Pedidos do Divinos
+                  </div>
+                  <h2 className="text-xl font-bold text-stone-900 font-serif mb-0.5 font-black">Gerenciar Mais Pedidos (Destaques)</h2>
+                  <p className="text-xs text-stone-500 leading-relaxed font-semibold">
+                    Adicione ou remova pratos que aparecem na seção de maior sucesso no topo do seu cardápio digital. 
+                    Você pode controlar quais pratos aparecem, ajustar seus selos, preços especiais e fotos.
+                  </p>
+                </div>
+
+                {/* 1. SEÇÃO DE DESTAQUES ATUAIS */}
+                <div className="bg-white p-5 rounded-2xl border-2 border-stone-200/60 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+                    <h3 className="font-bold text-xs sm:text-sm text-stone-900 flex items-center gap-1.5 font-sans uppercase tracking-wider">
+                      <span>🔥 Destaques Ativos Atualmente</span>
+                      <span className="text-xs bg-[#c99406]/15 text-[#8f6902] border border-[#c99406]/30 px-2.5 py-0.5 rounded-full font-black">
+                        {featuredProducts.length} {featuredProducts.length === 1 ? "prato" : "pratos"} selecionados
+                      </span>
+                    </h3>
+                  </div>
+
+                  {featuredProducts.length === 0 ? (
+                    <div className="text-center py-10 bg-stone-50 rounded-xl border border-dashed border-stone-200 text-stone-500">
+                      <p className="text-xs font-bold uppercase mb-1 text-stone-600">Nenhum prato em destaque</p>
+                      <p className="text-[11px] font-semibold text-stone-400 max-w-sm mx-auto">
+                        Utilize a barra de pesquisa ou o catálogo abaixo para selecionar e marcar pratos do cardápio nos Mais Pedidos!
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {featuredProducts.map((p) => (
+                        <div key={p.id} className="bg-stone-50 rounded-2xl border-2 border-stone-150 overflow-hidden shadow-sm flex flex-col justify-between p-4 hover:border-brand-red/15 transition group">
+                          <div className="flex gap-3">
+                            <div className="w-14 h-14 bg-stone-200 rounded-xl overflow-hidden shrink-0 border border-stone-300">
+                              <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <h4 className="font-extrabold text-xs text-stone-950 truncate leading-tight">{p.name}</h4>
+                              <p className="text-[9px] text-stone-400 font-bold uppercase tracking-wider mt-0.5">{p.category?.replace("Pratos ", "")}</p>
+                              <div className="flex items-center gap-1.5 mt-1.5">
+                                <span className="text-xs font-black font-sans text-stone-900">
+                                  {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(p.price)}
+                                </span>
+                                {p.selo && (
+                                  <span className="text-[8px] bg-brand-red text-white px-1.5 py-0.5 rounded font-black uppercase tracking-widest">{p.selo}</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between border-t border-stone-200/50 pt-3 mt-3 gap-2">
+                            <button
+                              onClick={() => handleOpenEditProductForm(p)}
+                              className="px-2.5 py-1.5 bg-white hover:bg-stone-100 text-stone-700 rounded-lg text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 transition border border-stone-200"
+                            >
+                              <Edit3 className="w-3 h-3 text-stone-400" />
+                              Ajustar Prato
+                            </button>
+                            <button
+                              onClick={() => handleToggleFeatured(p.id, false)}
+                              className="px-2.5 py-1.5 bg-red-50 hover:bg-red-100 border border-red-200 text-brand-red rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition cursor-pointer"
+                            >
+                              <X className="w-3 h-3" />
+                              Remover
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. ADICIONAR NOVOS DESTAQUES MULTI-GRID */}
+                <div className="bg-white p-5 rounded-2xl border-2 border-stone-200/60 shadow-sm space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-3">
+                    <div>
+                      <h3 className="font-bold text-xs sm:text-sm text-stone-900 uppercase tracking-wider">
+                        ⭐ Adicionar Pratos aos Mais Pedidos
+                      </h3>
+                      <p className="text-[10px] text-stone-400 font-semibold leading-tight mt-0.5">Clique em "Adicionar" nos pratos abaixo para destacá-los.</p>
+                    </div>
+
+                    <div className="relative w-full sm:w-64 shrink-0">
+                      <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        placeholder="Buscar prato por nome ou categoria..."
+                        value={maisPedidosQuery}
+                        onChange={(e) => setMaisPedidosQuery(e.target.value)}
+                        className="w-full bg-stone-50 border border-stone-200 rounded-xl pl-8.5 pr-3 py-1.5 text-xs focus:outline-none focus:border-brand-yellow focus:bg-white font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  {otherProductsFiltered.length === 0 ? (
+                    <div className="text-center py-10 text-stone-400 text-xs font-semibold">
+                      {maisPedidosQuery 
+                        ? `Nenhum prato disponível ou encontrado para "${maisPedidosQuery}".`
+                        : "Todos os pratos já estão destacados nos Mais Pedidos!"}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {otherProductsFiltered.map((p) => (
+                        <div key={p.id} className="bg-stone-50 rounded-xl border border-stone-200 p-3 flex justify-between items-center hover:border-amber-400 hover:bg-amber-50/10 transition duration-150">
+                          <div className="flex gap-2.5 min-w-0 flex-1">
+                            <div className="w-11 h-11 rounded-lg bg-stone-200 border border-stone-200 overflow-hidden shrink-0">
+                              <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <h4 className="font-bold text-xs text-stone-900 truncate leading-snug">{p.name}</h4>
+                              <p className="text-[8px] text-amber-600 font-extrabold uppercase tracking-wider">{p.category?.replace("Pratos ", "")}</p>
+                              <p className="text-[10px] text-stone-600 font-sans font-black">{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(p.price)}</p>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => handleToggleFeatured(p.id, true)}
+                            className="ml-2.5 bg-amber-500 hover:bg-amber-600 text-stone-950 px-2.5 py-1.5 rounded-lg shrink-0 flex items-center gap-1 text-[9px] uppercase font-black transition cursor-pointer border border-[#c49216]"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Adicionar</span>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Persistent Save Floating Advice banner inside the panel */}
           <div className="mt-8 pt-5 border-t border-stone-100 flex flex-col sm:flex-row items-center justify-between gap-4 font-sans bg-amber-50/50 p-4 rounded-xl border border-amber-100">

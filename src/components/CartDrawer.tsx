@@ -58,15 +58,69 @@ export function CartDrawer({
     }
   };
 
+  const lastOpenedRef = useRef<boolean>(false);
+  const lastTrackedTimeRef = useRef<number>(0);
+  const lastTrackedTotalRef = useRef<number>(0);
+
+  const subtotalForRef = cartItems.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
+
+  // Plates count helper for free delivery calculation
+  const isPlateForPromoLocal = (categoryName: string) => {
+    const cat = (categoryName || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (cat.includes("bebida") || cat.includes("suco") || cat.includes("sobremesa")) {
+      return false;
+    }
+    return true;
+  };
+
+  const platesCountLocal = cartItems.reduce((acc, item) => {
+    if (isPlateForPromoLocal(item.product.category)) {
+      return acc + item.quantity;
+    }
+    return acc;
+  }, 0);
+
+  const isDeliveryFreeLocal = platesCountLocal >= 2;
+  const actualDeliveryCostLocal = isDeliveryFreeLocal ? 0 : deliveryFee;
+  const cartTotalLocal = subtotalForRef + actualDeliveryCostLocal;
+  const totalItemsLocal = cartItems.reduce((acc, item) => acc + item.quantity, 0);
+
+  const triggerInitiateCheckoutEvent = (force: boolean = false) => {
+    if (cartItems.length === 0) return;
+    
+    const now = Date.now();
+    const hasTotalChanged = cartTotalLocal !== lastTrackedTotalRef.current;
+    
+    if (!force && !hasTotalChanged && (now - lastTrackedTimeRef.current < 3000)) {
+      return;
+    }
+    
+    lastTrackedTimeRef.current = now;
+    lastTrackedTotalRef.current = cartTotalLocal;
+
+    safeTrack("InitiateCheckout", {
+      value: Number(cartTotalLocal.toFixed(2)),
+      currency: "BRL",
+      num_items: totalItemsLocal,
+      content_type: "product",
+      contents: cartItems.map(item => ({
+        id: item.product.id,
+        quantity: item.quantity,
+        item_price: item.product.price
+      }))
+    });
+  };
+
   useEffect(() => {
     if (isOpen && cartItems.length > 0) {
-      safeTrack("InitiateCheckout", {
-        num_items: cartItems.reduce((acc, item) => acc + item.quantity, 0),
-        value: cartItems.reduce((acc, item) => acc + item.product.price * item.quantity, 0),
-        currency: "BRL"
-      });
+      if (!lastOpenedRef.current) {
+        triggerInitiateCheckoutEvent();
+        lastOpenedRef.current = true;
+      }
+    } else {
+      lastOpenedRef.current = false;
     }
-  }, [isOpen, cartItems.length]);
+  }, [isOpen, cartItems.length, cartTotalLocal]);
 
   const [cartStage, setCartStage] = useState<"items" | "address">("items");
 
@@ -614,6 +668,8 @@ export function CartDrawer({
               ) : (
                 <button
                   onClick={() => {
+                    // Trigger InitiateCheckout upon advancing with recalculated items
+                    triggerInitiateCheckoutEvent(true);
                     // Navigate to Delivery Step via route hashes
                     window.location.hash = "#/endereco";
                   }}

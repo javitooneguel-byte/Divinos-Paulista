@@ -3,12 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Product } from "../types";
 import { optimizeImageUrl, imagePerfProps } from "../lib/imageOptimizer";
-
-import { safeTrack } from "../lib/metaPixel";
 
 interface ProductCardProps {
   product: Product;
@@ -20,18 +18,6 @@ interface ProductCardProps {
 export function ProductCard({ product, quantityInCart, onAdd }: ProductCardProps) {
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
-
-  useEffect(() => {
-    // Safely trigger ViewContent event for this loaded product item
-    safeTrack("ViewContent", {
-      content_name: product.name,
-      content_category: product.category,
-      value: product.price,
-      currency: "BRL",
-      content_ids: [product.id],
-      content_type: "product"
-    });
-  }, [product.id]);
 
   // Format price in Brazilian Real context
   const formattedPrice = new Intl.NumberFormat("pt-BR", {
@@ -72,11 +58,20 @@ export function ProductCard({ product, quantityInCart, onAdd }: ProductCardProps
           referrerPolicy="no-referrer"
         />
         {/* Dynamic Badge (Selo) */}
-        {product.selo && (
-          <div className="absolute top-3 left-3 bg-amber-500 text-stone-950 text-[9px] px-2.5 py-1 rounded-full font-extrabold uppercase tracking-wider shadow-md">
-            {product.selo}
-          </div>
-        )}
+        {product.selo && (() => {
+          let badgeColor = "bg-brand-red text-white border-red-600/10";
+          const lowerSelo = product.selo.toLowerCase();
+          if (lowerSelo.includes("especial")) {
+            badgeColor = "bg-amber-500 text-stone-950 border-amber-600/10";
+          } else if (lowerSelo.includes("servido")) {
+            badgeColor = "bg-emerald-600 text-white border-emerald-700/10";
+          }
+          return (
+            <div className={`absolute top-3 left-3 text-[9px] px-2.5 py-1 rounded-full font-black uppercase tracking-wider shadow-md border ${badgeColor}`}>
+              {product.selo}
+            </div>
+          );
+        })()}
         {/* Subtle category tag inside card */}
         <div className="absolute top-3 right-3 bg-stone-900/70 backdrop-blur-md text-[10px] text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
           {product.category}
@@ -95,25 +90,32 @@ export function ProductCard({ product, quantityInCart, onAdd }: ProductCardProps
         </div>
 
         {/* Pricing and Adjustive Buttons */}
-        <div className="flex items-center justify-between gap-2 pt-4 border-t border-stone-100/60 mt-auto">
-          <div className="flex flex-col">
-            <span className="text-[10px] uppercase font-sans text-stone-400 font-medium">Preço</span>
-            <span className="font-extrabold text-stone-950 font-sans text-base sm:text-lg leading-tight">{formattedPrice}</span>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t border-stone-100/60 mt-auto">
+          <div className="flex justify-between items-center sm:block">
+            <div className="flex flex-col">
+              <span className="text-[10px] uppercase font-sans text-stone-400 font-medium">Preço</span>
+              <span className="font-extrabold text-stone-950 font-sans text-base sm:text-lg leading-tight">{formattedPrice}</span>
+            </div>
+            {quantityInCart > 0 && (
+              <span className="text-[10px] bg-amber-500/10 text-amber-800 border border-amber-500/20 font-extrabold px-2.5 py-1 rounded-lg sm:hidden">
+                x{quantityInCart} no pedido
+              </span>
+            )}
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 w-full sm:w-auto">
             {quantityInCart > 0 && (
-              <span className="text-[10px] bg-amber-100 text-amber-800 font-extrabold px-2 py-1 rounded-lg shrink-0">
-                x{quantityInCart} no pedido
+              <span className="text-[10px] bg-amber-500/10 text-amber-800 border border-amber-500/20 font-extrabold px-2.5 py-1 rounded-lg shrink-0 hidden sm:inline-block">
+                x{quantityInCart}
               </span>
             )}
             <button
               type="button"
               onClick={() => onAdd(product)}
-              className="bg-brand-red hover:bg-brand-red-dark text-white font-bold py-2 px-3 sm:px-3.5 rounded-xl transition duration-150 flex items-center gap-1 shadow-sm active:scale-95 text-xs uppercase tracking-wider cursor-pointer font-sans"
+              className="bg-brand-red hover:bg-brand-red-dark text-white font-extrabold py-3.5 px-4 sm:py-2 sm:px-3.5 rounded-xl transition duration-150 flex items-center justify-center gap-1 shadow-md active:scale-95 text-xs uppercase tracking-wider w-full sm:w-auto cursor-pointer font-sans"
             >
-              <Plus className="w-3.5 h-3.5" />
-              Adicionar
+              <Plus className="w-4 h-4 sm:w-3.5 sm:h-3.5" strokeWidth={3} />
+              Quero esse prato
             </button>
           </div>
         </div>

@@ -24,7 +24,7 @@ export const DEFAULT_APP_DATA: AppDataStore = {
   products: PRODUCTS.filter((p) => p.id !== "prato-do-dia").map((p) => ({
     ...p,
     isActive: true,
-    isFeatured: false
+    isFeatured: ["feijoada-completa", "costela-cozida-mandioca", "parmegiana-frango-especial"].includes(p.id)
   })),
   pratoDoDia: {
     name: "Prato do Dia",

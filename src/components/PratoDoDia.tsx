@@ -3,11 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Flame, Plus, Sparkles } from "lucide-react";
 import { Product } from "../types";
 import { optimizeImageUrl, imagePerfProps } from "../lib/imageOptimizer";
-import { safeTrack } from "../lib/metaPixel";
 
 interface PratoDoDiaProps {
   product: Product;
@@ -19,17 +18,6 @@ export function PratoDoDia({ product, onAdd, cartQuantity }: PratoDoDiaProps) {
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
 
-  useEffect(() => {
-    // Safely trigger ViewContent event for Prato do Dia
-    safeTrack("ViewContent", {
-      content_name: product.name,
-      content_category: product.category,
-      value: product.price,
-      currency: "BRL",
-      content_ids: [product.id],
-      content_type: "product"
-    });
-  }, [product.id]);
   const priceParts = product.price.toFixed(2).split(".");
   const reais = priceParts[0];
   const centavos = priceParts[1];

@@ -6,6 +6,7 @@
 import React, { useEffect, useState } from "react";
 import { ChefHat, ShoppingBag, Send, ArrowRight, CheckCircle2 } from "lucide-react";
 import { optimizeImageUrl } from "../lib/imageOptimizer";
+import { safeTrack, initAdvancedMatching } from "../lib/metaPixel";
 
 interface RedirectionPageProps {
   logo?: string;
@@ -18,7 +19,57 @@ export function RedirectionPage({ logo, companyName = "Divinos Paulista" }: Redi
   const [activeStep, setActiveStep] = useState(0);
 
   useEffect(() => {
-    // Get the pending WhatsApp redirect URL from sessionStorage
+    // 1. Safely track Lead and Purchase events once per order
+    try {
+      const orderDataStr = sessionStorage.getItem("last_order_details");
+      if (orderDataStr) {
+        const orderData = JSON.parse(orderDataStr);
+        if (orderData && orderData.orderId) {
+          const flagKey = `purchase_tracked_${orderData.orderId}`;
+          if (!sessionStorage.getItem(flagKey)) {
+            // Apply Advanced Matching
+            if (orderData.customer) {
+              initAdvancedMatching({
+                name: orderData.customer.name,
+                phone: orderData.customer.phone,
+                city: orderData.customer.city
+              });
+            }
+
+            // Track Lead
+            safeTrack("Lead", {
+              value: orderData.cartTotal,
+              currency: "BRL",
+              content_name: `Pedido de ${orderData.customer?.name || "Cliente"}`,
+              num_items: orderData.totalItems
+            });
+
+            // Track Purchase
+            safeTrack("Purchase", {
+              value: orderData.cartTotal,
+              currency: "BRL",
+              num_items: orderData.totalItems,
+              content_type: "product",
+              contents: (orderData.cartItems || []).map((item: any) => ({
+                id: item.id,
+                quantity: item.quantity,
+                item_price: item.price
+              })),
+              order_id: orderData.orderId
+            });
+
+            // Prevent duplicate fires
+            sessionStorage.setItem(flagKey, "true");
+          } else {
+            console.log(`[Meta Pixel] Order ${orderData.orderId} was already tracked in this session.`);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[Meta Pixel] Error tracking Conversion Events in RedirectionPage:", e);
+    }
+
+    // 2. Get the pending WhatsApp redirect URL from sessionStorage
     const url = sessionStorage.getItem("pending_whatsapp_url") || "";
     setWhatsappUrl(url);
 
